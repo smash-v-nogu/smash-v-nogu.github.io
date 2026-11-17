@@ -15,10 +15,10 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1215'/%3E%3Cpath d='M9 22 L22 9 L43 34 L34 43 Z' fill='%23f1eee4'/%3E%3Cpath d='M15.5 15.5 L38.5 38.5 M12 19 L36.5 41 M19 12 L41 36.5' stroke='%23b8c2bd' stroke-width='1.6'/%3E%3Ccircle cx='42' cy='42' r='9' fill='%23ff6a3d'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='3 6 58 58'%3E%3Crect x='3' y='6' width='58' height='58' rx='13' fill='%230b1215'/%3E%3Cg transform='translate(-1 2)'%3E%3Cpath d='M7 47 L9.5 30 Q10.2 26.5 13.5 26.5 L21.5 26.5 Q23.6 26.5 24.6 28.4 L27.6 33.4 L39.5 36.4 Q52 38.6 56.6 45 L57.4 47 Z' fill='%233cc3e6'/%3E%3Cpath d='M41 36.8 Q52 38.6 56.6 45 L57.4 47 L45 47 Q43.5 41 41 36.8 Z' fill='%239fe6f6'/%3E%3Cpath d='M5.5 46 H56 Q60.5 46 60.5 50 Q60.5 54.5 55.5 54.5 H9 Q5.5 54.5 5.5 50.5 Z' fill='%23f1eee4'/%3E%3Cpath d='M5.8 50.6 H60.3' stroke='%23c8cfca' stroke-width='1.4'/%3E%3Cpath d='M27.4 37.5 l3.2 -2.4 M31.6 38.4 l3.2 -2.4 M35.8 39.3 l3.2 -2.4' stroke='%23f1eee4' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M11.5 30 Q13 28.5 15 28.5 H20' stroke='%231d7d96' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3Cg transform='translate(43.5 33.5) rotate(-38) scale(0.78)'%3E%3Cpath d='M-6.5 -5 L6.5 -5 L15.5 -30 Q7.75 -26.5 0 -30.5 Q-7.75 -26.5 -15.5 -30 Z' fill='%23f1eee4'/%3E%3Cpath d='M-3 -5 L-8.6 -28.6 M0 -5 L0 -29.5 M3 -5 L8.6 -28.6' stroke='%23b8c2bd' stroke-width='1.3' fill='none'/%3E%3Cpath d='M-10.7 -17.5 Q0 -15.6 10.7 -17.5' stroke='%23b8c2bd' stroke-width='1.5' fill='none'/%3E%3Cpath d='M-7.5 -5.5 H7.5 V0 A7.5 7.5 0 0 1 -7.5 0 Z' fill='%23ff6a3d'/%3E%3Crect x='-7.5' y='-5.5' width='15' height='2.6' fill='%23c94a26'/%3E%3C/g%3E%3Cpath d='M44.5 26 l3.2 -4.2 M49.5 31 l5 -1.6 M38.5 24.5 l-0.6 -5' stroke='%23ffd78a' stroke-width='2.4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Golos+Text:wght@400;500;600&family=Doto:wght@900&display=swap" rel="stylesheet">
 <style>
 :root {
   /* Ночная игра в зале: тёмный зал, зелёный корт, тёплые лампы. Вся смелость — в табло скорости смэша на стене. */
@@ -70,17 +70,7 @@ kbd { font-family: var(--font-display); font-size: 11px; font-weight: 500; paddi
 .overlay[hidden] { display: none; }
 #nameDlg { z-index: 12; background: rgba(8, 13, 15, 0.72); }
 
-/* Меню: шапка с игроком, две карточки режимов, таблица и управление — на одной сетке */
-#menu { background: linear-gradient(180deg, rgba(8, 13, 15, 0.84), rgba(8, 13, 15, 0.94)); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
-#menu > .menu-inner { margin: max(28px, 5vh) auto auto; }
-.menu-inner { width: min(1060px, 100%); display: grid; gap: 18px; }
-.menu-grid { display: grid; grid-template-columns: minmax(0, 1fr) 264px; gap: 16px; align-items: start; }
-.main-col { display: grid; gap: 16px; }
-.menu-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 6px; }
-.title-block { display: grid; gap: 10px; }
-.eyebrow { margin: 0; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--lamp); }
-h1 { margin: 0; font-family: var(--font-display); font-weight: 900; font-size: clamp(36px, 5.6vw, 68px); line-height: 0.95; letter-spacing: -0.035em; text-wrap: balance; }
-h1 span { color: var(--p1); }
+/* Меню — разметка и оба стиля в конце стилей, раздел «Главный экран» */
 
 .me-chip { display: flex; align-items: center; gap: 12px; padding: 7px 16px 7px 7px; border-radius: 999px; border: 1px solid var(--edge); background: var(--surface); text-align: left; }
 .me-chip:hover { border-color: rgba(232, 239, 233, 0.32); }
@@ -91,25 +81,11 @@ h1 span { color: var(--p1); }
 .me-txt small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .me-chip .pen { color: var(--muted); font-size: 14px; margin-left: 2px; }
 
-.panel { border-radius: 20px; background: var(--surface); border: 1px solid var(--edge); }
-.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.mcard { display: flex; flex-direction: column; gap: 20px; padding: 22px; position: relative; overflow: hidden; }
-.mcard::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, var(--c), transparent 75%); }
-.mcard.ai { --c: var(--p1); --c-ink: var(--p1-ink); }
-.mcard.net { --c: var(--p2); --c-ink: var(--p2-ink); }
-.mcard-head { display: grid; gap: 6px; }
-.mcard-head h2 { margin: 0; display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: -0.01em; }
-.mcard-head h2::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c); box-shadow: 0 0 12px var(--c); }
-.mcard-head p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.45; min-height: 2.9em; }
-.mcard-body { display: grid; gap: 10px; margin-top: auto; }
-.mcard-body[hidden] { display: none; }
-
 .btn { border: 1px solid var(--edge); background: transparent; border-radius: 12px; padding: 13px 18px; font-family: var(--font-display); font-weight: 500; font-size: 14px; transition: filter 0.15s, border-color 0.15s, background 0.15s; }
 .btn.block { width: 100%; }
 .btn.primary { background: var(--p1); border-color: var(--p1); color: var(--p1-ink); font-weight: 700; }
 .btn.accent { background: var(--c); border-color: var(--c); color: var(--c-ink); font-weight: 700; }
 .btn.soft { background: rgba(232, 239, 233, 0.07); }
-.train-note { margin: -4px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; }
 .train-top { margin: 0; padding: 12px 14px; list-style: none; display: grid; gap: 6px; border-radius: 12px; background: rgba(0, 0, 0, 0.2); text-align: left; counter-reset: tt; }
 .train-top[hidden] { display: none; }
 .train-top li { display: flex; align-items: center; gap: 10px; font-size: 14px; counter-increment: tt; }
@@ -125,7 +101,6 @@ h1 span { color: var(--p1); }
 .or { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
 .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--edge); }
 
-.panel-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 16px; }
 .lb { padding: 18px 20px 14px; display: grid; gap: 8px; align-content: start; }
 .lb table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
 .lb th { white-space: nowrap; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; text-align: right; padding: 4px 0 6px; }
@@ -162,12 +137,6 @@ body.menu-open #board .init { display: none; }
 .lb .empty { margin: 2px 0 4px; font-size: 13px; color: var(--muted); }
 .lb .empty[hidden] { display: none; }
 .lb .foot { margin: 2px 0 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
-.sidepanel { padding: 20px; display: grid; gap: 16px; align-content: start; --accent: var(--p1); }
-.sidepanel p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.55; }
-.sidepanel .keys { display: grid; gap: 12px; }
-.sidepanel .about { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid var(--edge); }
-.sidepanel .about p b { color: var(--ink); font-weight: 600; }
-body.touch .sidepanel .about { padding-top: 0; border-top: 0; }
 .caps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .cap { height: 50px; border-radius: 10px; background: #172324; border-bottom: 3px solid #060b0c; display: grid; place-items: center; align-content: center; gap: 1px; }
 .cap b { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
@@ -315,18 +284,159 @@ body.touch .only-keys { display: none; }
 .wait-actions .btn { padding: 10px 14px; font-size: 13px; }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
 #board .mid { font-variant-numeric: tabular-nums; }
-@media (max-width: 900px) { .menu-grid { grid-template-columns: 1fr; } }
-@media (max-width: 620px) { .cards { grid-template-columns: 1fr; } .menu-head { align-items: flex-start; } }
 @media (max-width: 480px) { .lb th:nth-child(5), .lb td:nth-child(5) { display: none; } .lb th + th, .lb td + td { padding-left: 10px; } }
-@media (max-height: 520px) {
-  h1 { font-size: 40px; }
-  .menu-inner { gap: 12px; }
-  .mcard { padding: 16px; gap: 14px; }
-  .mcard-head p { min-height: 0; }
-}
 body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibility: hidden; }
 @media (max-width: 560px) {
   #board .name { display: none; }
+}
+/* ========= Главный экран: «Табло зала» =========
+   Меню — как табло на стене зала: чёрные плиты с винтами, цифры светодиодами (шрифт Doto — только цифры и код комнаты),
+   таблица — как плашка счёта в трансляции. Сетка: телефон — одна колонка, планшет — две, десктоп — три. */
+#menu { padding: 0; }
+#menu > .menu-inner { position: relative; z-index: 1; width: min(1220px, 100%); margin: 0 auto auto; padding: max(20px, 3.2vh) 22px 28px; display: grid; gap: 18px; }
+.menu-head { display: flex; align-items: center; justify-content: space-between; gap: 14px 24px; flex-wrap: wrap; }
+.brand { margin: 0; display: flex; align-items: center; gap: 12px; }
+.brand-mark { width: 70px; height: 58px; flex: none; display: block; }
+.brand-word { display: grid; }
+.brand-hot { color: var(--p1); }
+.menu-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "ai" "net" "train" "lb" "keys"; }
+.t-ai { grid-area: ai; } .t-net { grid-area: net; } .t-train { grid-area: train; } .t-lb { grid-area: lb; } .t-keys { grid-area: keys; }
+.tile { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+.tile-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tile-head h2 { margin: 0; }
+.tile-tag { flex: none; white-space: nowrap; }
+.tile-sub { margin: 0; }
+.tile-foot { display: grid; gap: 10px; margin-top: auto; }
+.tile-foot[hidden] { display: none; }
+.t-net .tile-foot { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px 18px; align-items: end; }
+.t-net .tile-foot > .inapp { grid-column: 1 / -1; }
+.net-make { display: grid; gap: 10px; }
+.play-row { display: grid; grid-template-columns: minmax(0, 1fr) 108px; gap: 8px; }
+.len button { padding-left: 2px; padding-right: 2px; }
+.t-train .btn { margin-top: auto; }
+.t-keys { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 16px 28px; --accent: var(--p1); }
+.t-keys .keys { flex: 1 1 460px; display: grid; grid-template-columns: 210px minmax(0, 1fr); align-items: center; gap: 10px 22px; }
+.t-keys .keys h2 { grid-column: 1 / -1; margin: 0; }
+.t-keys .cap { height: 42px; }
+.keys-note { margin: 0; font-size: 13px; line-height: 1.6; }
+.rules-cta { flex: 1 1 220px; max-width: 300px; display: grid; gap: 6px; text-align: center; }
+.rules-cta small { font-size: 12px; line-height: 1.4; }
+body.touch .rules-cta { max-width: none; }
+.t-keys .touch-note { flex: 1 1 100%; }
+@media (min-width: 720px) {
+  .menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "ai net" "train net" "lb lb" "keys keys"; }
+}
+@media (min-width: 1080px) {
+  .menu-grid { grid-template-columns: 1fr 1fr 1.2fr; grid-template-areas: "ai net lb" "train net lb" "keys keys keys"; }
+}
+.menu-inner, #nameDlg {
+  --plate: linear-gradient(180deg, rgba(14, 21, 23, 0.97), rgba(6, 9, 10, 0.98));
+  --plate-edge: #1b2729;
+  --screw: #2b3d3f;
+  --well: #050809;
+  --font-led: "Doto", "Courier New", monospace;
+}
+#menu { background: radial-gradient(110% 70% at 50% -12%, rgba(255, 215, 138, 0.09), transparent 62%), linear-gradient(180deg, rgba(6, 10, 11, 0.86), rgba(6, 10, 11, 0.95)); }
+.brand-word { font: 900 29px/0.96 var(--font-display); letter-spacing: -0.035em; }
+.tile, #nameDlg .card {
+  border: 1px solid var(--plate-edge);
+  background:
+    radial-gradient(circle at 11px 11px, var(--screw) 2.3px, transparent 3px),
+    radial-gradient(circle at calc(100% - 11px) 11px, var(--screw) 2.3px, transparent 3px),
+    radial-gradient(circle at 11px calc(100% - 11px), var(--screw) 2.3px, transparent 3px),
+    radial-gradient(circle at calc(100% - 11px) calc(100% - 11px), var(--screw) 2.3px, transparent 3px),
+    var(--plate);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 24px 50px rgba(0, 0, 0, 0.35);
+}
+.tile { border-radius: 18px; padding: 22px 22px 20px; --c: var(--lamp); --c-ink: #221804; }
+.t-ai { --c: var(--p1); --c-ink: var(--p1-ink); }
+.t-net { --c: var(--p2); --c-ink: var(--p2-ink); }
+.t-lb { --c: #7be3a6; }
+.tile-head h2, .t-keys h2 { display: flex; align-items: center; gap: 10px; font: 700 13px var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; }
+.tile-head h2::before, .t-keys h2::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c), 0 0 2px var(--c); }
+.tile-tag { padding: 5px 8px; border-radius: 6px; border: 1px solid var(--plate-edge); background: var(--well); color: var(--muted); font: 700 9.5px var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; }
+.tile-sub { font-size: 14px; line-height: 1.5; color: var(--muted); }
+.t-train .tile-sub { color: var(--ink); }
+.seg, #nameDlg .seg { border: 0; padding: 0; gap: 6px; background: none; }
+.seg button { position: relative; padding: 19px 4px 9px; border-radius: 10px; background: #0b1214; border: 1px solid var(--plate-edge); color: var(--muted); font: 700 10px var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; transition: color 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.seg button::before { content: ""; position: absolute; top: 7px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #243436; transition: background 0.15s, box-shadow 0.15s; }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-checked="true"] { color: var(--lamp); background: #0f1719; border-color: rgba(255, 215, 138, 0.45); box-shadow: inset 0 0 18px rgba(255, 215, 138, 0.1); }
+.seg button[aria-checked="true"]::before { background: var(--lamp); box-shadow: 0 0 8px var(--lamp); }
+#menu .btn, #nameDlg .btn { border-radius: 11px; padding: 14px 16px; font: 700 12.5px var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; transition: filter 0.15s, transform 0.08s, border-color 0.15s, box-shadow 0.15s; }
+#menu .btn.go, #menu .btn.accent, #nameDlg .btn.primary { background: var(--c); border-color: var(--c); color: var(--c-ink); font-weight: 900; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -3px 0 rgba(0, 0, 0, 0.22), 0 10px 28px color-mix(in srgb, var(--c) 32%, transparent); }
+#nameDlg .btn.primary { --c: var(--p1); --c-ink: var(--p1-ink); }
+.btn.go:active, #nameDlg .btn.primary:active { transform: translateY(1px); }
+.t-train .btn, #openRules, #netJoin, #menu .btn.soft { background: #0e1618; border-color: color-mix(in srgb, var(--c) 45%, transparent); color: var(--c); }
+#openRules { --c: var(--ink); border-color: var(--plate-edge); }
+.t-train .btn:hover, #openRules:hover, #netJoin:hover { border-color: var(--c); box-shadow: 0 0 18px color-mix(in srgb, var(--c) 22%, transparent); }
+.or { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f7670; }
+.lobby-title { font: 700 10px var(--font-display); letter-spacing: 0.16em; color: #7be3a6; }
+.lobby-item { padding: 9px 10px; border-radius: 10px; background: #0b1214; border-color: var(--plate-edge); }
+.lobby-item:hover { border-color: var(--p2); box-shadow: inset 0 0 0 1px var(--p2), 0 0 18px rgba(60, 195, 230, 0.15); }
+.lobby-item .go { font: 700 10px var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; }
+#netCode, #nameDlg .field { background: var(--well); border-color: var(--plate-edge); box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.7); }
+#netCode { padding: 6px 8px 6px calc(8px + 0.32em); font: 900 30px/1.2 var(--font-led); letter-spacing: 0.32em; color: var(--p2); text-shadow: 0 0 12px rgba(60, 195, 230, 0.6); }
+#netCode::placeholder { font: 700 11px var(--font-display); letter-spacing: 0.16em; text-transform: uppercase; color: #3f5456; text-shadow: none; }
+.wait .code { font: 900 72px/1 var(--font-led); letter-spacing: 0.14em; color: var(--p2); text-shadow: 0 0 22px rgba(60, 195, 230, 0.6); }
+.net-status { color: var(--muted); }
+#menu #netHost { padding-left: 10px; padding-right: 10px; font-size: 11.5px; letter-spacing: 0.05em; white-space: nowrap; }
+/* таблица: строки — плашки счёта, место и смэш — на тёмных светодиодных ячейках */
+.lb table { border-collapse: separate; border-spacing: 0 6px; margin: -4px 0 -6px; }
+.lb th { padding: 0 0 1px; font: 700 9.5px var(--font-display); letter-spacing: 0.14em; color: #5f7670; }
+.lb th + th, .lb td + td { padding-left: 12px; }
+.lb td { border-top: 0; padding: 7px 0; background: #e6eae3; color: #0b1215; vertical-align: middle; }
+.lb td:first-child { border-radius: 9px 0 0 9px; }
+.lb td:last-child { border-radius: 0 9px 9px 0; }
+.lb td.rank { width: 36px; padding: 7px 0 !important; text-align: center; background: #0b1214; box-shadow: inset 0 0 0 1px var(--plate-edge); color: var(--lamp); font: 900 18px/1 var(--font-led); text-shadow: 0 0 8px rgba(255, 215, 138, 0.5); }
+.lb td.rank svg { margin: 0 auto; }
+.lb td:last-child { min-width: 78px; padding-right: 10px; text-align: right; background: #0b1214; box-shadow: inset 0 0 0 1px var(--plate-edge); color: var(--lamp); font: 900 18px/1 var(--font-led); text-shadow: 0 0 8px rgba(255, 215, 138, 0.45); }
+.lb td.name { font-weight: 600; }
+.lb .wl { font: 900 17px/1 var(--font-led); }
+.lb .wl b { color: #0b1215; font-weight: 900; }
+.lb .wl .sep, .lb .wl .ls { color: #6d7b76; }
+.lb td .of { font: 500 10px var(--font-body); color: #5f7670; text-shadow: none; }
+.lb tr.p1 td { background: #f2e3b6; }
+.lb tr.p1 td.rank, .lb tr.p1 td:last-child { background: #0b1214; }
+.lb tr.p1 td:first-child { box-shadow: inset 0 0 0 1px rgba(245, 196, 81, 0.6), 0 0 14px rgba(245, 196, 81, 0.25); padding-left: 0; }
+.lb tr.p1 td:last-child { padding-right: 10px; }
+.lb tr.me td.name { color: #0b1215; }
+.lb .tag { margin-left: 7px; padding: 2px 6px; border-radius: 999px; background: var(--p1); color: var(--p1-ink); font: 700 9px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; opacity: 1; vertical-align: 1px; }
+.lb .foot, .lb .empty { color: var(--muted); }
+.keys-note, .rules-cta small, .t-keys .touch-note { color: var(--muted); }
+.cap { background: linear-gradient(180deg, #1a2729, #121c1e); border-bottom-color: #050809; }
+.me-chip { border-radius: 14px; padding: 8px 16px 8px 8px; border-color: var(--plate-edge); background: var(--plate); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+.me-chip:hover { border-color: rgba(255, 215, 138, 0.4); }
+.me-chip .ava { border-radius: 10px; }
+/* окно входа */
+#nameDlg { background: rgba(4, 7, 8, 0.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+#nameDlg .card { width: min(420px, 100%); border-radius: 20px; padding: 30px 26px 24px; --c: var(--lamp); }
+#nameDlg .card h2 { font: 700 22px var(--font-display); letter-spacing: -0.01em; }
+#nameDlg .fl-l { font: 700 9.5px var(--font-display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+#nameDlg .field.pin { padding: 8px 14px; font: 900 26px/1.2 var(--font-led); letter-spacing: 0.5em; color: var(--lamp); text-shadow: 0 0 10px rgba(255, 215, 138, 0.5); }
+#nameDlg .field.pin::placeholder { font: 500 15px var(--font-body); letter-spacing: normal; text-shadow: none; }
+#nameDlg .styles button { position: relative; padding: 22px 6px 11px; border-radius: 12px; background: #0b1214; border-color: var(--plate-edge); }
+#nameDlg .styles button::before { content: ""; position: absolute; top: 9px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #243436; }
+#nameDlg .styles button b { font: 700 10.5px var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; }
+#nameDlg .styles button[aria-checked="true"] { border-color: rgba(255, 215, 138, 0.5); background: #0f1719; box-shadow: inset 0 0 18px rgba(255, 215, 138, 0.1); }
+#nameDlg .styles button[aria-checked="true"]::before { background: var(--lamp); box-shadow: 0 0 8px var(--lamp); }
+/* телефон и низкий экран */
+@media (max-width: 560px) {
+  #menu > .menu-inner { padding: 18px 14px 24px; gap: 14px; }
+  .menu-grid { gap: 12px; }
+  .me-chip { flex: 1 1 100%; }
+  .brand-mark { width: 58px; height: 48px; }
+  .brand-word { font-size: 24px; }
+  .tile { padding: 20px 18px 18px; }
+  .t-keys .keys { grid-template-columns: 1fr; }
+}
+@media (max-height: 520px) {
+  #menu > .menu-inner { padding-top: 14px; gap: 12px; }
+  .brand-mark { width: 52px; height: 43px; }
+  .brand-word { font-size: 22px; }
+}
+@media (max-width: 480px) {
+  .lb td:nth-child(4) { border-radius: 0 9px 9px 0; padding-right: 10px; }
 }
 </style>
 </head>
@@ -362,8 +472,11 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
 <section class="overlay" id="menu" aria-label="Меню">
   <div class="menu-inner">
     <header class="menu-head">
-      <h1>Смэш мне <span>в ногу</span></h1>
-      <button class="me-chip" id="editName" title="Сменить имя">
+      <h1 class="brand" aria-label="Смэш мне в ногу">
+        <svg class="brand-mark" viewBox="3 10 58 48" aria-hidden="true"><use href="#logoKeda"/></svg>
+        <span class="brand-word" aria-hidden="true"><span>Смэш мне</span> <span class="brand-hot">в ногу</span></span>
+      </h1>
+      <button class="me-chip" id="editName" title="Профиль: имя и стиль игры">
         <span class="ava" id="meAva" aria-hidden="true">?</span>
         <span class="me-txt"><b id="meName">…</b><small id="meBest">рекордов пока нет</small></span>
         <span class="pen" aria-hidden="true">✎</span>
@@ -371,62 +484,71 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
     </header>
 
     <div class="menu-grid">
-      <div class="main-col">
-        <div class="cards">
-          <article class="mcard panel ai">
-            <div class="mcard-head">
-              <h2>Против ИИ</h2>
-              <p id="diffNote">Держит розыгрыш, но ошибается под давлением</p>
+      <article class="tile t-ai" aria-labelledby="hAi">
+        <div class="tile-head"><h2 id="hAi">Против ИИ</h2></div>
+        <p class="tile-sub" id="diffNote">Держит розыгрыш, но ошибается под давлением</p>
+        <div class="tile-foot">
+          <div class="seg" role="radiogroup" aria-label="Сложность ИИ" id="diffSeg">
+            <button role="radio" data-diff="easy" aria-checked="false">Лёгкий</button>
+            <button role="radio" data-diff="medium" aria-checked="true">Средний</button>
+            <button role="radio" data-diff="hard" aria-checked="false">Сложный</button>
+          </div>
+          <div class="play-row">
+            <button class="btn go block" id="playAi">Играть</button>
+            <div class="seg two len" role="radiogroup" aria-label="Длина партии против ИИ">
+              <button role="radio" data-len="7" aria-checked="false">до 7</button>
+              <button role="radio" data-len="15" aria-checked="true">до 15</button>
             </div>
-            <div class="mcard-body">
-              <div class="seg" role="radiogroup" aria-label="Сложность ИИ" id="diffSeg">
-                <button role="radio" data-diff="easy" aria-checked="false">Лёгкий</button>
-                <button role="radio" data-diff="medium" aria-checked="true">Средний</button>
-                <button role="radio" data-diff="hard" aria-checked="false">Сложный</button>
-              </div>
-              <button class="btn accent block" id="playAi">Играть</button>
-              <button class="btn soft block" id="playTrain">Тренировка с многоволанкой</button>
-              <p class="train-note" id="trainNote">Робот подаёт 20 воланов, клади их в подсвеченные зоны</p>
-            </div>
-          </article>
-
-          <article class="mcard panel net" id="onlineCard">
-            <div class="mcard-head">
-              <h2>С другом по сети</h2>
-              <p>Один создаёт комнату, второй входит по коду. Каждый видит себя слева, а подколоть соперника можно реакциями на 1–4</p>
-            </div>
-            <div class="mcard-body" id="netControls">
-              <p class="inapp" id="inapp" hidden>Ты во встроенном браузере приложения. Если онлайн не соединяется, открой ссылку в Safari или Chrome.</p>
-              <div class="lobby" id="lobby" hidden>
-                <div class="lobby-title">Ждут соперника</div>
-                <div class="lobby-list" id="lobbyList"></div>
-                <div class="or">или</div>
-              </div>
-              <button class="btn accent block" id="netHost">Создать комнату</button>
-              <div class="or">или войти по коду</div>
-              <div class="net-join">
-                <input id="netCode" maxlength="4" placeholder="Код" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Код комнаты">
-                <button class="btn" id="netJoin">Войти</button>
-              </div>
-            </div>
-            <div class="net-status" id="netStatus" aria-live="polite"></div>
-          </article>
+          </div>
         </div>
+      </article>
 
-        <section class="lb panel" aria-label="Таблица побед">
-          <h2 class="panel-title">Таблица</h2>
-          <table>
-            <thead><tr><th class="l">#</th><th class="l">Игрок</th><th title="Победы – поражения в играх с друзьями">Друзья</th><th title="Победы – поражения против ИИ">ИИ</th><th>Смэш</th></tr></thead>
-            <tbody id="lbBody"></tbody>
-          </table>
-          <p class="empty" id="lbEmpty">Пока пусто. Сыграй партию, и ты появишься здесь.</p>
-          <p class="foot" id="lbFoot">Результаты хранятся у каждого и обмениваются, когда вы играете по сети</p>
-        </section>
-      </div>
+      <article class="tile t-net" id="onlineCard" aria-labelledby="hNet">
+        <div class="tile-head"><h2 id="hNet">С другом по сети</h2><span class="tile-tag">1 на 1</span></div>
+        <p class="tile-sub">Один создаёт комнату, второй входит по коду. Каждый видит себя слева, а подколоть соперника можно реакциями на 1–4</p>
+        <div class="tile-foot" id="netControls">
+          <p class="inapp" id="inapp" hidden>Ты во встроенном браузере приложения. Если онлайн не соединяется, открой ссылку в Safari или Chrome.</p>
+          <div class="lobby" id="lobby" hidden>
+            <div class="lobby-title">Ждут соперника</div>
+            <div class="lobby-list" id="lobbyList"></div>
+          </div>
+          <div class="net-make">
+            <div class="play-row">
+              <button class="btn go block" id="netHost">Создать комнату</button>
+              <div class="seg two len" role="radiogroup" aria-label="Длина партии в твоей комнате">
+                <button role="radio" data-len="7" aria-checked="false">до 7</button>
+                <button role="radio" data-len="15" aria-checked="true">до 15</button>
+              </div>
+            </div>
+            <div class="or">или войти по коду</div>
+            <div class="net-join">
+              <input id="netCode" maxlength="4" placeholder="Код" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Код комнаты">
+              <button class="btn" id="netJoin">Войти</button>
+            </div>
+          </div>
+        </div>
+        <div class="net-status" id="netStatus" aria-live="polite"></div>
+      </article>
 
-      <aside class="sidepanel panel" aria-label="Управление и об игре">
+      <article class="tile t-train" aria-labelledby="hTrain">
+        <div class="tile-head"><h2 id="hTrain">Тренировка</h2><span class="tile-tag">многоволанка</span></div>
+        <p class="tile-sub" id="trainNote">Робот подаёт 20 воланов, клади их в подсвеченные зоны</p>
+        <button class="btn block" id="playTrain">Начать тренировку</button>
+      </article>
+
+      <section class="tile t-lb lb" aria-labelledby="hLb">
+        <div class="tile-head"><h2 id="hLb">Таблица</h2></div>
+        <table>
+          <thead><tr><th class="l">#</th><th class="l">Игрок</th><th title="Победы – поражения в играх с друзьями">Друзья</th><th title="Победы – поражения против ИИ">ИИ</th><th>Смэш</th></tr></thead>
+          <tbody id="lbBody"></tbody>
+        </table>
+        <p class="empty" id="lbEmpty">Пока пусто. Сыграй партию, и ты появишься здесь.</p>
+        <p class="foot" id="lbFoot">Результаты хранятся у каждого и обмениваются, когда вы играете по сети</p>
+      </section>
+
+      <aside class="tile t-keys" aria-label="Управление и правила">
         <div class="keys only-keys">
-          <h2 class="panel-title">Управление</h2>
+          <h2>Управление</h2>
           <div class="caps">
             <div class="cap shot"><b>Q</b><small>клир</small></div>
             <div class="cap"><b>W</b><small>прыжок</small></div>
@@ -435,18 +557,39 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
             <div class="cap shot"><b>S</b><small>смэш</small></div>
             <div class="cap"><b>D</b><small>к сетке</small></div>
           </div>
-          <p>Ниже плеча те же кнопки дают свечу, сетку и драйв.</p>
-          <p>При ударе стрелка — прицел: <kbd>D</kbd> — дальше, под заднюю линию, <kbd>A</kbd> — ближе к сетке и острее. Смэш с <kbd>A</kbd> летит в ноги. <kbd>Esc</kbd> пауза</p>
+          <p class="keys-note">Ниже плеча те же кнопки дают свечу, сетку и драйв. При ударе стрелка — прицел: <kbd>D</kbd> дальше, под заднюю линию, <kbd>A</kbd> ближе к сетке и острее. Смэш с <kbd>A</kbd> летит в ноги. <kbd>Esc</kbd> пауза</p>
         </div>
-        <div class="about">
-          <button class="btn soft block" id="openRules">Правила</button>
-          <p>11 коротких шагов: каждый удар с анимацией, а в конце лайфхаки</p>
+        <p class="touch-note only-touch">Слева бег, справа удары. Держи телефон горизонтально.</p>
+        <div class="rules-cta">
+          <button class="btn block" id="openRules">Правила</button>
+          <small>11 шагов: каждый удар с анимацией, в конце лайфхаки</small>
         </div>
       </aside>
     </div>
-    <p class="touch-note only-touch">Слева бег, справа удары. Держи телефон горизонтально.</p>
   </div>
 </section>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- Логотип «Прямо в кеду»: волан соперника воткнулся в синюю кеду -->
+  <symbol id="logoKeda" viewBox="0 0 64 64">
+    <g transform="translate(-1 2)">
+      <path d="M7 47 L9.5 30 Q10.2 26.5 13.5 26.5 L21.5 26.5 Q23.6 26.5 24.6 28.4 L27.6 33.4 L39.5 36.4 Q52 38.6 56.6 45 L57.4 47 Z" fill="#3cc3e6"/>
+      <path d="M41 36.8 Q52 38.6 56.6 45 L57.4 47 L45 47 Q43.5 41 41 36.8 Z" fill="#9fe6f6"/>
+      <path d="M5.5 46 H56 Q60.5 46 60.5 50 Q60.5 54.5 55.5 54.5 H9 Q5.5 54.5 5.5 50.5 Z" fill="#f1eee4"/>
+      <path d="M5.8 50.6 H60.3" stroke="#c8cfca" stroke-width="1.4"/>
+      <path d="M27.4 37.5 l3.2 -2.4 M31.6 38.4 l3.2 -2.4 M35.8 39.3 l3.2 -2.4" stroke="#f1eee4" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M11.5 30 Q13 28.5 15 28.5 H20" stroke="#1d7d96" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      <g transform="translate(43.5 33.5) rotate(-38) scale(0.78)">
+        <path d="M-6.5 -5 L6.5 -5 L15.5 -30 Q7.75 -26.5 0 -30.5 Q-7.75 -26.5 -15.5 -30 Z" fill="#f1eee4"/>
+        <path d="M-3 -5 L-8.6 -28.6 M0 -5 L0 -29.5 M3 -5 L8.6 -28.6" stroke="#b8c2bd" stroke-width="1.3" fill="none"/>
+        <path d="M-10.7 -17.5 Q0 -15.6 10.7 -17.5" stroke="#b8c2bd" stroke-width="1.5" fill="none"/>
+        <path d="M-7.5 -5.5 H7.5 V0 A7.5 7.5 0 0 1 -7.5 0 Z" fill="#ff6a3d"/>
+        <rect x="-7.5" y="-5.5" width="15" height="2.6" fill="#c94a26"/>
+      </g>
+      <path d="M44.5 26 l3.2 -4.2 M49.5 31 l5 -1.6 M38.5 24.5 l-0.6 -5" stroke="#ffd78a" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+  </symbol>
+</svg>
 
 <section class="overlay" id="nameDlg" hidden aria-label="Имя игрока">
   <form class="card" id="nameForm" novalidate>
@@ -555,7 +698,9 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
 const COURT = 13.4, NET = 6.7, NET_H = 1.524, NET_LOW = 0.76, POST_H = 1.55, SHORT = 1.98;
 const HALF_W = 3.05, SINGLES_W = 2.59, DBL_LONG = 0.76;
 const G = 9.81, H = 1 / 240, DEG = Math.PI / 180;
-const TARGET = 15, CAP = 21; // до 15, нужен отрыв в 2 очка, но не дольше 21
+// Длина партии → потолок: до 15 с отрывом в 2 очка, но не дольше 21; до 7 — не дольше 10. Выбор перед стартом — matchLen
+const TARGETS = { 7: 10, 15: 21 };
+let matchLen = 15; // выбор «до 7 / до 15» в меню, хранится в bdm-len
 const SHOULDER = 1.45, HIP = 0.95, JUMP_V = 3.6;
 const VIEW_L = -1.7, VIEW_R = COURT + 1.7, VIEW_TOP = 8.0, VIEW_BOTTOM = -1.05;
 const DZX = 0.055, DZY = 0.11; // косая проекция глубины: дальняя сторона корта выше и правее
@@ -669,7 +814,7 @@ function makePlayer(idx) {
 const P = [makePlayer(0), makePlayer(1)];
 const sh = { x: 0, y: 1, vx: 0, vy: 0, held: true, inPlay: false, lastHitter: null, netHit: false, isServe: false, trail: [], trailT: 0, predLand: null, ang: -Math.PI / 2 };
 const game = {
-  mode: 'demo', diff: 'medium', state: 'serve', stateT: 0, score: [0, 0], server: 0, over: null,
+  mode: 'demo', diff: 'medium', target: 15, state: 'serve', stateT: 0, score: [0, 0], server: 0, over: null,
   time: 0, hitId: 0, rallyHits: 0, paused: false, hitstop: 0, shake: 0, posEpoch: 0,
   wall: null, popups: [], bubbles: [],
   stats: { rallies: 0, hits: 0, totalRallyHits: 0, shots: {}, ends: {} },
@@ -682,6 +827,8 @@ function basePos(p) { return NET - p.face * 3.3; }
 function localIdx() { return game.mode === 'online' ? Net.myIdx : 0; }
 function setupMode(mode, diff) {
   game.mode = mode;
+  // свою длину партии берут игра против ИИ и хозяин комнаты; гость узнаёт её из снимков хозяина
+  game.target = mode === '1p' || mode === '2p' || (mode === 'online' && Net.role === 'host') ? matchLen : 15;
   if (diff) game.diff = diff;
   const online = mode === 'online';
   P[0].ai = mode === 'demo' ? { diff: 'hard' } : null;
@@ -893,7 +1040,7 @@ function award(w, label) {
   updateBestRally(game.rallyHits);
   fx('popup', label, +clamp(sh.x, VIEW_L + 1, VIEW_R - 1).toFixed(2), 0.75, w.color, true, true);
   const a = game.score[w.idx], b = game.score[1 - w.idx];
-  if ((a >= TARGET && a - b >= 2) || a >= CAP) game.over = w.idx;
+  if ((a >= game.target && a - b >= 2) || a >= TARGETS[game.target]) game.over = w.idx;
   fx('point', w.idx);
   if (w.ai && sh.lastHitter === w && sh.variant === 'smash' && label !== 'Аут') aiReact(0, 350, 0.45);
   else if (!w.ai && P[1 - w.idx].ai && sh.lastHitter === w && sh.variant === 'smash' && label !== 'Аут') aiReact(1, 450, 0.3);
@@ -1732,11 +1879,12 @@ function drawTrainZone(c) {
 function pointStatus() {
   if (game.over !== null || game.mode === 'demo') return null;
   const [a, b] = game.score;
-  const wins = (x, y) => (x + 1 >= TARGET && x + 1 - y >= 2) || x + 1 >= CAP;
+  const T = game.target, C = TARGETS[T];
+  const wins = (x, y) => (x + 1 >= T && x + 1 - y >= 2) || x + 1 >= C;
   const wa = wins(a, b), wb = wins(b, a);
   if (wa && wb) return { kind: 'golden' };
   if (wa || wb) return { kind: 'gp', idx: wa ? 0 : 1 };
-  if (a >= TARGET - 1 && a === b) return { kind: 'deuce' };
+  if (a >= T - 1 && a === b) return { kind: 'deuce' };
   return null;
 }
 const PS_TEXT = { gp: 'геймбол', golden: 'решающее очко', deuce: 'больше-меньше' };
@@ -1758,7 +1906,7 @@ function updateBoard() {
   $('side0').classList.toggle('serving', game.server === L);
   $('side1').classList.toggle('serving', game.server === Rr);
   const ps = pointStatus();
-  $('boardMid').textContent = ps ? PS_TEXT[ps.kind] : 'до 15';
+  $('boardMid').textContent = ps ? PS_TEXT[ps.kind] : 'до ' + game.target;
   $('boardMid').classList.toggle('hot', !!ps);
   const me = localIdx();
   document.title = game.mode === '1p' || game.mode === 'online' ? game.score[me] + ':' + game.score[1 - me] + ' · Смэш мне в ногу' : 'Смэш мне в ногу';
@@ -1819,6 +1967,8 @@ $('btnPause').addEventListener('click', () => { if (game.mode !== 'demo' && game
 $('btnTune').addEventListener('click', () => {
   const t = $('tune'); t.hidden = !t.hidden; $('btnTune').setAttribute('aria-pressed', String(!t.hidden));
 });
+function syncLen() { for (const o of document.querySelectorAll('.len button')) o.setAttribute('aria-checked', String(+o.dataset.len === matchLen)); }
+for (const b of document.querySelectorAll('.len button')) b.addEventListener('click', () => { matchLen = +b.dataset.len; saveJSON('bdm-len', matchLen); syncLen(); });
 for (const b of document.querySelectorAll('#diffSeg button')) {
   b.addEventListener('click', () => {
     game.diff = b.dataset.diff;
@@ -2031,7 +2181,7 @@ function sendSnapshot() {
   Net.send({
     t: 'st', n: ++Net.outN, p: pl,
     s: [r3(sh.x), r3(sh.y), r3(sh.vx), r3(sh.vy), sh.held ? 1 : 0, sh.inPlay ? 1 : 0, r3(sh.ang), sh.netHit ? 1 : 0, sh.lastHitter ? sh.lastHitter.idx : -1, sh.predLand == null ? null : r2(sh.predLand)],
-    g: [game.state, game.score[0], game.score[1], game.server, game.rallyHits, game.over, game.posEpoch], id: profile.pid, nm: profile.name, sy: profile.style,
+    g: [game.state, game.score[0], game.score[1], game.server, game.rallyHits, game.over, game.posEpoch, game.target], id: profile.pid, nm: profile.name, sy: profile.style,
     c: [cfg.timeScale, cfg.runSpeed, cfg.reach, cfg.vTerm],
     ev: Net.events.filter(e => e[0] > Net.eventAck), rt: Net.lastTs,
   });
@@ -2074,9 +2224,10 @@ function onSnapshot(m) {
   if (game.mode !== 'online') startGame('online');
   const c = m.c || [];
   if (c.length === 4 && c.every(Number.isFinite)) { cfg.timeScale = c[0]; cfg.runSpeed = c[1]; cfg.reach = c[2]; cfg.vTerm = c[3]; K = G / (cfg.vTerm * cfg.vTerm); }
-  const [state, s0, s1, server, rally, over, ep] = m.g;
+  const [state, s0, s1, server, rally, over, ep, tg] = m.g;
   const prev = game.state;
-  const boardChanged = s0 !== game.score[0] || s1 !== game.score[1] || server !== game.server;
+  const boardChanged = s0 !== game.score[0] || s1 !== game.score[1] || server !== game.server || (TARGETS[tg] && tg !== game.target);
+  if (TARGETS[tg]) game.target = tg;
   game.state = state; game.score[0] = s0; game.score[1] = s1; game.server = server; game.rallyHits = rally; game.over = over;
   if (boardChanged) updateBoard();
   if (state !== prev) {
@@ -2572,7 +2723,7 @@ function drawBubbles(c, dt) {
    Мини-корт рисуется отдельно, а траектории считает та же физика, что и в игре. */
 const RULE_STEPS = [
   { t: 'Как выиграть очко', keys: [], demo: 'score',
-    d: '<p>Очко получает тот, на чьей стороне волан <b>не упал</b>: он приземлился у соперника в корте, или соперник ошибся — аут, сетка, не долетело.</p><p>Партия до <b>15</b>. При 14:14 нужен отрыв в два очка, но не дольше чем до 21. Подаёт тот, кто выиграл прошлое очко.</p>' },
+    d: '<p>Очко получает тот, на чьей стороне волан <b>не упал</b>: он приземлился у соперника в корте, или соперник ошибся — аут, сетка, не долетело.</p><p>Партия до <b>15</b> или до <b>7</b> — выбираешь перед стартом, в сети решает хозяин комнаты. При 14:14 нужен отрыв в два очка, но не дольше чем до 21, в короткой партии при 6:6 — не дольше чем до 10. Подаёт тот, кто выиграл прошлое очко.</p>' },
   { t: 'Бег и прыжок', keys: ['A', 'D', 'W'], demo: 'move',
     d: '<p><kbd>A</kbd> — назад, <kbd>D</kbd> — к сетке, <kbd>W</kbd> — прыжок. Прыжок поднимает точку удара, поэтому смэш из прыжка круче и быстрее.</p><p>Против ИИ можно играть и стрелками.</p>' },
   { t: 'Подача', keys: ['Q', 'E', 'S'], demo: 'serve',
@@ -2912,6 +3063,7 @@ function start(data) {
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
   document.body.classList.add('menu-open');
   syncTune();
+  { const l = loadJSON('bdm-len', 15); if (TARGETS[l]) matchLen = l; syncLen(); }
   resize();
   window.addEventListener('resize', resize);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(buildBackground).catch(() => {});
