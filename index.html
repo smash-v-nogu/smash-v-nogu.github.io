@@ -109,6 +109,13 @@ h1 span { color: var(--p1); }
 .btn.primary { background: var(--p1); border-color: var(--p1); color: var(--p1-ink); font-weight: 700; }
 .btn.accent { background: var(--c); border-color: var(--c); color: var(--c-ink); font-weight: 700; }
 .btn.soft { background: rgba(232, 239, 233, 0.07); }
+.train-note { margin: -4px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; }
+.train-top { margin: 0; padding: 12px 14px; list-style: none; display: grid; gap: 6px; border-radius: 12px; background: rgba(0, 0, 0, 0.2); text-align: left; counter-reset: tt; }
+.train-top[hidden] { display: none; }
+.train-top li { display: flex; align-items: center; gap: 10px; font-size: 14px; counter-increment: tt; }
+.train-top li::before { content: counter(tt); width: 16px; color: var(--muted); font-size: 12px; }
+.train-top li b { margin-left: auto; font-family: var(--font-display); }
+.train-top li.me { color: var(--lamp); }
 .btn:hover { border-color: rgba(232, 239, 233, 0.4); }
 .btn.primary:hover, .btn.accent:hover { filter: brightness(1.08); border-color: transparent; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--edge); border-radius: 12px; padding: 3px; gap: 3px; background: rgba(0, 0, 0, 0.18); }
@@ -389,6 +396,8 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
                 <button role="radio" data-diff="hard" aria-checked="false">Сложный</button>
               </div>
               <button class="btn accent block" id="playAi">Играть</button>
+              <button class="btn soft block" id="playTrain">Тренировка с многоволанкой</button>
+              <p class="train-note" id="trainNote">Робот подаёт 20 воланов, клади их в подсвеченные зоны</p>
             </div>
           </article>
 
@@ -524,6 +533,7 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
     <h2 id="overTitle">Партия</h2>
     <p class="card-sub" id="overSub"></p>
     <div class="final" id="overScore">15 : 11</div>
+    <ol class="train-top" id="overTop" hidden></ol>
     <div class="row">
       <button class="btn primary" id="again">Ещё партия</button>
       <button class="btn" id="toMenu2">В меню</button>
@@ -692,7 +702,7 @@ function setupMode(mode, diff) {
   if (diff) game.diff = diff;
   const online = mode === 'online';
   P[0].ai = mode === 'demo' ? { diff: 'hard' } : null;
-  P[1].ai = (mode === '2p' || online) ? null : { diff: mode === 'demo' ? 'medium' : game.diff };
+  P[1].ai = (mode === '2p' || online || mode === 'train') ? null : { diff: mode === 'demo' ? 'medium' : game.diff };
   P[0].remote = false;
   P[1].remote = online && Net.role === 'host';
   for (const p of P) { p.tx = undefined; p.ty = undefined; }
@@ -700,12 +710,12 @@ function setupMode(mode, diff) {
     P[Net.myIdx].name = profile.name || 'Ты';
     P[1 - Net.myIdx].name = Net.peerName || 'Друг';
   } else {
-    P[0].name = mode === '1p' ? (profile.name || 'Ты') : mode === '2p' ? 'Игрок слева' : 'ИИ';
-    P[1].name = mode === '1p' ? 'ИИ · ' + DIFFS[game.diff].label : mode === '2p' ? 'Игрок справа' : 'ИИ';
+    P[0].name = mode === '1p' || mode === 'train' ? (profile.name || 'Ты') : mode === '2p' ? 'Игрок слева' : 'ИИ';
+    P[1].name = mode === '1p' ? 'ИИ · ' + DIFFS[game.diff].label : mode === '2p' ? 'Игрок справа' : mode === 'train' ? 'Робот' : 'ИИ';
   }
   const styleKeys = Object.keys(STYLES), rndStyle = () => styleKeys[Math.floor(Math.random() * styleKeys.length)];
   P[0].style = mode === 'demo' ? rndStyle() : profile.style;
-  P[1].style = online ? (Net.myIdx === 1 ? profile.style : (Net.peerStyle || 'tech')) : mode === '2p' ? 'tech' : rndStyle();
+  P[1].style = online ? (Net.myIdx === 1 ? profile.style : (Net.peerStyle || 'tech')) : mode === '2p' || mode === 'train' ? 'tech' : rndStyle();
   if (mode === '1p') P[1].name += ' · ' + STYLES[P[1].style].label.toLowerCase();
   setMirror(online && Net.role === 'guest');
   newGame();
@@ -715,6 +725,7 @@ function newGame() {
   for (const p of P) { p.sta = 1; p.press = 0; }
   game.score = [0, 0]; game.over = null; game.server = 0; game.time = 0;
   game.popups = []; game.wall = null; game.bubbles = [];
+  if (game.mode === 'train') { game.server = 1; trainStart(); return; }
   setupServe();
   updateBoard();
 }
@@ -831,6 +842,7 @@ function doServe(p, key) {
 }
 
 function launch(p, sol, v, info = {}) {
+  if (game.mode === 'train' && game.train && p === P[0]) game.train.lastPerfect = !!info.perfect;
   sh.vx = p.face * Math.cos(sol.ang) * sol.speed;
   sh.vy = Math.sin(sol.ang) * sol.speed;
   sh.lastHitter = p; sh.netHit = false; sh.isServe = false; sh.held = false; sh.inPlay = true; sh.variant = v;
@@ -874,6 +886,7 @@ function applyPressure(p, v, info) {
 /* ========= Розыгрыш ========= */
 function onLand() {
   sh.inPlay = false; sh.y = 0; sh.vx = 0; sh.vy = 0;
+  if (game.mode === 'train') { trainLand(); return; }
   const hitter = sh.lastHitter, opp = opponent(hitter);
   const landSide = sh.x < NET ? 0 : 1;
   let winner, label;
@@ -1127,6 +1140,7 @@ function step(h) {
   game.time += h;
   for (const p of P) updatePlayer(p, h);
   updateShuttle(h);
+  if (game.mode === 'train') { trainTick(h); return; }
   if (game.state === 'point') {
     game.stateT += h;
     if (game.stateT > 1.1) {
@@ -1137,6 +1151,7 @@ function step(h) {
 
 function endGame() {
   if (game.mode === 'demo') { newGame(); return; }
+  if (game.mode === 'train') { trainEnd(); return; }
   game.state = 'over';
   const now = Date.now();
   if (game.mode === '1p') {
@@ -1150,12 +1165,14 @@ function endGame() {
   showOver();
 }
 function showOver() {
+  $('overTop').hidden = true;
+  if (game.mode === 'train') { showTrainOver(); return; }
   const w = game.over, me = localIdx();
   let title;
   if (game.mode === 'online') title = w === me ? 'Партия за тобой' : 'Победитель: ' + (Net.peerName || 'друг');
   else if (game.mode === '1p') title = w === 0 ? 'Партия за тобой' : 'Партия за ИИ';
   else title = w === 0 ? 'Победил игрок слева' : 'Победил игрок справа';
-  $('overTitle').textContent = title;
+  $('overTitle').textContent = title; $('again').textContent = 'Ещё партия';
   $('overSub').textContent = game.mode === 'online' ? 'Онлайн · ' + (Net.peerName || 'друг') : game.mode === '1p' ? 'Против ИИ · ' + DIFFS[game.diff].label : '';
   const os = $('overScore'); os.textContent = '';
   const a = document.createElement('span'), b = document.createElement('span');
@@ -1177,6 +1194,7 @@ const BIND = {
 };
 function bindFor(p) {
   if (game.mode === 'online') return p.idx === Net.myIdx ? BIND['1p'][0] : null;
+  if (game.mode === 'train') return p.idx === 0 ? BIND['1p'][0] : null;
   const b = BIND[game.mode]; return b ? b[p.idx] : null;
 }
 function humanAxis(p) {
@@ -1391,15 +1409,16 @@ function drawWall(c, dt) {
     const ps = game.state === 'serve' ? pointStatus() : null;
     const myRally = store.rally[profile.pid] || 0;
     const record = (game.mode === '1p' || game.mode === 'online') && game.state !== 'serve' && myRally >= 5 && game.rallyHits > myRally;
-    const hot = !!ps || record;
+    const tr = game.mode === 'train' && game.train && game.train.hint;
+    const hot = !!ps || record || !!tr;
     c.globalAlpha = hot ? 0.95 : 0.5;
     c.fillStyle = hot ? COLORS.lamp : COLORS.muted;
     c.font = `${hot ? 700 : 500} ${sc * 0.2}px ${disp}`;
-    const label = ps ? PS_TEXT[ps.kind].toUpperCase() : record ? 'РЕКОРД РОЗЫГРЫША' : game.state === 'serve' ? 'ПОДАЧА' : 'РОЗЫГРЫШ, УДАРОВ';
+    const label = tr ? 'ЗАДАНИЕ · ВОЛАН ' + (TRAIN_N - game.train.left + (game.state === 'point' ? 0 : 1)) + ' ИЗ ' + TRAIN_N : ps ? PS_TEXT[ps.kind].toUpperCase() : record ? 'РЕКОРД РОЗЫГРЫША' : game.state === 'serve' ? 'ПОДАЧА' : 'РОЗЫГРЫШ, УДАРОВ';
     c.fillText(label, cx, cy - sc * 0.35);
     c.globalAlpha = hot ? 0.9 : 0.5;
     c.fillStyle = COLORS.ink;
-    const big = game.state === 'serve' ? P[game.server].name.split(' ·')[0].toUpperCase() : String(game.rallyHits);
+    const big = tr ? game.train.hint.toUpperCase() : game.state === 'serve' ? P[game.server].name.split(' ·')[0].toUpperCase() : String(game.rallyHits);
     let fs = sc * 0.72;
     c.font = `700 ${fs}px ${disp}`;
     const tw = c.measureText(big).width;
@@ -1616,6 +1635,7 @@ function render(dt) {
     ctx.beginPath(); ctx.ellipse(X(sh.predLand), Y(0), sc * 0.18, sc * 0.05, 0, 0, Math.PI * 2); ctx.stroke();
   }
   drawMark(ctx, dt);
+  drawTrainZone(ctx);
   if (game.mode !== 'demo') drawStamina(ctx);
   updateInitBar();
   for (const p of P) drawPlayer(ctx, p, performance.now() / 1000);
@@ -1628,10 +1648,128 @@ function render(dt) {
 }
 
 
+
+/* ========= Тренировка с многоволанкой: робот подаёт, ты кладёшь волан в подсвеченную зону ========= */
+const TRAIN_N = 20;
+const ZONES = {
+  front: { d0: 0.15, d1: SHORT, label: 'к сетке' },
+  mid: { d0: SHORT + 0.2, d1: 4.6, label: 'в середину' },
+  back: { d0: 4.9, d1: COURT - NET, label: 'под заднюю' },
+};
+const FEEDS = [
+  { kind: 'clear', w: 0.36, zones: { back: 'Клир под заднюю', mid: 'Смэш в середину', front: 'Дроп к сетке' } },
+  { kind: 'lift', w: 0.2, zones: { back: 'Клир под заднюю', mid: 'Смэш в середину', front: 'Дроп к сетке' } },
+  { kind: 'drop', w: 0.26, zones: { front: 'Сетка', back: 'Свеча под заднюю' } },
+  { kind: 'drive', w: 0.18, zones: { mid: 'Драйв в середину', back: 'Под заднюю линию', front: 'Подставка к сетке' } },
+];
+function trainStart() {
+  game.train = { score: 0, left: TRAIN_N, inZone: 0, streak: 0, bestStreak: 0, target: null, hint: '', feed: null, result: null, lastPerfect: false };
+  P[0].x = NET - 3.3; P[0].sta = 1;
+  trainSetup();
+}
+function trainSetup() {
+  const t = game.train, bot = P[1];
+  for (const p of P) { p.vx = 0; p.vy = 0; p.y = 0; p.onGround = true; p.recover = 0; p.press = 0; p.wasGround = true; p.swing = null; p.shotReq = null; p.shotBuf = null; p.noPerfect = false; p.jumpReq = 0; }
+  bot.x = NET + 2.4;
+  let r = Math.random(), f = FEEDS[0];
+  for (const x of FEEDS) { if (r < x.w) { f = x; break; } r -= x.w; }
+  const zk = Object.keys(f.zones);
+  t.feed = f; t.target = zk[Math.floor(Math.random() * zk.length)]; t.hint = f.zones[t.target]; t.result = null; t.lastPerfect = false;
+  Object.assign(sh, { held: true, inPlay: false, lastHitter: null, netHit: false, isServe: false, trail: [], predLand: null, vx: 0, vy: 0, ang: -Math.PI / 2 });
+  placeInHand(bot);
+  game.state = 'feed'; game.stateT = 0; game.rallyHits = 0; game.posEpoch++; game.mark = null;
+  updateBoard(); updateHint();
+}
+function trainFeed() {
+  const bot = P[1], f = game.train.feed, dir = bot.face, T = d => NET + dir * d, rr = (a, b) => a + Math.random() * (b - a);
+  sh.x = bot.x + bot.face * 0.42;
+  let v, sol;
+  if (f.kind === 'clear') { sh.y = 2.3; v = 'clear'; sol = solveFixed(sh.x, sh.y, dir, T(rr(5.0, 6.2)), [48, 44, 40, 52, 56], 85); }
+  else if (f.kind === 'lift') { sh.y = 0.9; v = 'lift'; sol = solveFixed(sh.x, sh.y, dir, T(rr(4.8, 6.0)), [62, 58, 54, 66, 70], 80); }
+  else if (f.kind === 'drop') { sh.y = 1.9; v = 'drop'; sol = solveFlat(sh.x, sh.y, dir, T(rr(0.7, 1.6)), 26, 0.12, -40, 65); }
+  else { sh.y = 1.4; v = 'drive'; sol = solveFlat(sh.x, sh.y, dir, T(rr(2.8, 4.2)), 30, 0.12, -15, 50); }
+  if (!sol) { v = 'clear'; sol = solveFixed(sh.x, sh.y, dir, T(5.5), [50, 40, 32], 85); }
+  bot.swing = { key: f.kind === 'drop' ? 'drop' : f.kind === 'drive' ? 'smash' : 'clear', t: 0.06, hit: true, over: sh.y > bot.y + 1.6 };
+  launch(bot, sol, v);
+  P[0].press = 0;
+  game.state = 'rally'; game.stateT = 0;
+}
+function trainTick(h) {
+  if (!game.train) return;
+  if (game.state === 'feed') { game.stateT += h; if (game.stateT > 0.45) trainFeed(); }
+  else if (game.state === 'point') { game.stateT += h; if (game.stateT > 0.6) { if (game.train.left > 0) trainSetup(); else endGame(); } }
+}
+function trainLand() {
+  const t = game.train; if (!t) return;
+  let pts = 0, label, good = false;
+  if (sh.lastHitter === P[1]) label = 'Пропустил';
+  else if (sh.x < NET) label = sh.netHit ? 'В сетку' : 'Не перелетел';
+  else if (sh.x > COURT) label = 'Аут';
+  else {
+    const z = ZONES[t.target], d = sh.x - NET;
+    if (d >= z.d0 && d <= z.d1) {
+      good = true; t.streak++; t.inZone++;
+      pts = 3 + (t.lastPerfect ? 1 : 0) + (t.streak >= 3 ? 1 : 0);
+      label = (t.lastPerfect ? 'Чисто в цель' : 'В цель') + (t.streak >= 3 ? ' · серия ' + t.streak : '');
+    } else { pts = 1; label = 'Мимо зоны'; }
+  }
+  if (!good) t.streak = 0;
+  t.bestStreak = Math.max(t.bestStreak, t.streak);
+  t.score += pts; t.left--; t.result = good ? 'good' : pts ? 'ok' : 'bad';
+  fx('floor');
+  if (sh.x > COURT) fx('mark', +sh.x.toFixed(3), true, 'аут · ' + Math.max(1, Math.round((sh.x - COURT) * 100)) + ' см', COURT);
+  fx('popup', (pts ? '+' + pts + ' · ' : '') + label, +clamp(sh.x, VIEW_L + 1, VIEW_R - 1).toFixed(2), 0.75, good ? COLORS.lamp : pts ? P[0].color : '#ff8a7a', true, true);
+  if (canSound()) sndPoint(good);
+  game.state = 'point'; game.stateT = 0;
+  updateBoard();
+}
+function trainEnd() {
+  const t = game.train;
+  game.state = 'over';
+  t.record = noteTrain(profile.pid, t.score);
+  saveStore(); cloudSync(); renderTrainNote();
+  showOver();
+}
+function showTrainOver() {
+  const t = game.train, mine = bestOf(profile.pid, store.train);
+  $('overTitle').textContent = t.record ? 'Новый рекорд!' : 'Тренировка окончена';
+  $('overSub').textContent = t.inZone + ' из ' + TRAIN_N + ' в цель · лучшая серия ' + t.bestStreak + (t.record ? '' : ' · твой рекорд ' + mine);
+  const os = $('overScore'); os.textContent = '';
+  const a = document.createElement('span'); a.className = 'won'; a.textContent = t.score; os.append(a, ' очков');
+  const top = trainTop().slice(0, 5), ol = $('overTop'); ol.textContent = '';
+  for (const r of top) {
+    const li = document.createElement('li'); if (r.pid === profile.pid) li.className = 'me';
+    const av = document.createElement('span'); av.className = 'av'; av.style.background = pidColor(r.pid); av.textContent = r.name.charAt(0).toUpperCase();
+    const b = document.createElement('b'); b.textContent = r.n;
+    li.append(av, document.createTextNode(r.name), b); ol.appendChild(li);
+  }
+  ol.hidden = top.length < 2;
+  $('over').hidden = false; $('again').textContent = 'Ещё раз'; $('again').focus();
+}
+function drawTrainZone(c) {
+  const t = game.train;
+  if (game.mode !== 'train' || !t || !t.target || game.state === 'over') return;
+  const z = ZONES[t.target], x0 = NET + z.d0, x1 = NET + Math.min(z.d1, COURT - NET);
+  const col = t.result === 'good' ? '123,227,166' : t.result === 'bad' ? '255,138,122' : '255,215,138';
+  const pulse = t.result ? 1 : 0.65 + 0.35 * Math.sin(performance.now() / 260);
+  c.save();
+  c.beginPath();
+  c.moveTo(X(x0, -SINGLES_W), Y(0, -SINGLES_W)); c.lineTo(X(x1, -SINGLES_W), Y(0, -SINGLES_W));
+  c.lineTo(X(x1, SINGLES_W), Y(0, SINGLES_W)); c.lineTo(X(x0, SINGLES_W), Y(0, SINGLES_W)); c.closePath();
+  c.fillStyle = `rgba(${col},${0.13 + 0.1 * pulse})`; c.fill();
+  c.strokeStyle = `rgba(${col},${0.55 + 0.35 * pulse})`; c.lineWidth = 2; c.stroke();
+  if (game.state !== 'point') {
+    c.font = `700 ${Math.max(12, sc * 0.24)}px ${FB}`; c.textAlign = 'center'; c.textBaseline = 'bottom';
+    c.fillStyle = `rgba(${col},0.95)`;
+    c.fillText(t.hint, X((x0 + x1) / 2, SINGLES_W), Y(0, SINGLES_W) - 6);
+  }
+  c.restore();
+}
+
 /* ========= Удар мышью: зажми, потяни в сторону удара, отпусти в момент удара ========= */
 const drag = { on: false, id: null, x0: 0, y0: 0, x: 0, y: 0, pts: [], last: null };
 function myPlayer() {
-  if (game.mode === '1p') return P.find(p => !p.ai) || null;
+  if (game.mode === '1p' || game.mode === 'train') return P[0];
   if (game.mode === 'online' && Net.connected) return P[Net.myIdx];
   return null;
 }
@@ -1649,15 +1787,58 @@ function dragVec() {
   return { dx, dy, speed, len: Math.hypot(drag.x - drag.x0, drag.y - drag.y0) };
 }
 // свой игрок всегда слева, поэтому «вперёд» — вправо по экрану
-function dragShot(dx, dy, speed = 0, len = Math.hypot(dx, dy)) {
-  const up = -dy;
+function dragParams(dx, dy, speed = 0, len = Math.hypot(dx, dy)) {
   const pw = Math.max(clamp((len - DROP_R) / (FULL_R - DROP_R), 0, 1) * 0.78 + (len > DROP_R ? 0.22 : len / DROP_R * 0.22), clamp((speed - 500) / 2500, 0, 1));
-  const a = Math.atan2(up, Math.abs(dx) + 0.001) * 180 / Math.PI;
-  if (pw < 0.22) return { key: 'drop', place: pw < 0.1 ? 1 : 0, pw, a };
-  if (a > 22) return { key: 'clear', place: a < 48 ? 1 : pw > 0.7 ? -1 : 0, pw, a };
-  if (a < -12) return { key: 'smash', place: a < -50 ? 1 : pw > 0.75 ? -1 : 0, pw, a };
-  return { key: 'smash', place: pw > 0.7 ? -1 : 1, pw, a };
+  return { a: Math.atan2(-dy, Math.abs(dx) + 0.001) * 180 / Math.PI, pw };
 }
+function shotFrom(a, pw) {
+  if (pw < 0.22) return { key: 'drop', place: pw < 0.1 ? 1 : 0, pw, a, zone: 'drop' };
+  if (a > 22) return { key: 'clear', place: a < 48 ? 1 : pw > 0.7 ? -1 : 0, pw, a, zone: 'clear' };
+  if (a < -12) return { key: 'smash', place: a < -50 ? 1 : pw > 0.75 ? -1 : 0, pw, a, zone: 'smash' };
+  return { key: 'smash', place: pw > 0.7 ? -1 : 1, pw, a, zone: 'flat' };
+}
+function dragShot(dx, dy, speed = 0, len = Math.hypot(dx, dy)) { const q = dragParams(dx, dy, speed, len); return shotFrom(q.a, q.pw); }
+// прилипание: на границе сектора удар не прыгает туда-сюда, пока мышь не уйдёт в соседний сектор заметно
+function stickyShot() {
+  const v = dragVec(), { a, pw } = dragParams(v.dx, v.dy, v.speed, v.len), raw = shotFrom(a, pw), prev = drag.cur;
+  let out = raw;
+  if (prev && (prev.zone !== raw.zone || prev.place !== raw.place)) {
+    search: for (const da of [0, -9, 9]) for (const dp of [0, -0.05, 0.05]) {
+      const alt = shotFrom(a + da, clamp(pw + dp, 0, 1));
+      if (alt.zone === prev.zone && alt.place === prev.place) { out = { ...alt, a, pw }; break search; }
+    }
+  }
+  if (prev && prev.zone !== out.zone) sndSector(out.zone);
+  drag.cur = out;
+  chargeUpdate(out.pw);
+  return out;
+}
+/* звук: тон заряда растёт с силой, щелчок при смене сектора, свист при ударе */
+const charge = { o: null, g: null, f: null };
+function chargeStart() {
+  if (!canSound() || charge.o) return;
+  try {
+    const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 150; f.type = 'lowpass'; f.frequency.value = 700; g.gain.value = 0.0001;
+    o.connect(f).connect(g).connect(master); o.start();
+    g.gain.setTargetAtTime(0.02, actx.currentTime, 0.04);
+    Object.assign(charge, { o, g, f });
+  } catch (_) { charge.o = null; }
+}
+function chargeUpdate(pw) {
+  if (!charge.o) return;
+  const t = actx.currentTime;
+  charge.o.frequency.setTargetAtTime(150 + 330 * pw, t, 0.04);
+  charge.f.frequency.setTargetAtTime(600 + 2000 * pw, t, 0.04);
+  charge.g.gain.setTargetAtTime(0.018 + 0.04 * pw, t, 0.05);
+}
+function chargeStop() {
+  if (!charge.o) return;
+  try { const t = actx.currentTime; charge.g.gain.setTargetAtTime(0.0001, t, 0.015); charge.o.stop(t + 0.12); } catch (_) {}
+  charge.o = null;
+}
+function sndSector(zone) { if (canSound()) tone(zone === 'clear' ? 1500 : zone === 'drop' ? 950 : zone === 'flat' ? 1250 : 1100, 1000, 0.04, 0.03, 'square'); }
+function sndWhoosh(pw) { if (canSound()) noise(1100 + 2200 * pw, 0.6, 0.06 + 0.2 * pw, 0.08 + 0.1 * pw); }
 // где примерно встретим волан: высота контакта решает, смэш это или драйв, клир или свеча
 function predictContact(me) {
   if (game.state === 'serve') return { x: me.x, y: 1.0 };
@@ -1694,13 +1875,13 @@ function drawCompass(c, cx, cy, s, alpha) {
   const sectors = [['clear', -158, -22], ['smash', 12, 168], ['flat', -22, 12], ['flat', 168, 202]];
   c.save(); c.globalAlpha = alpha;
   for (const [k, a0, a1] of sectors) {
-    const key = k === 'flat' ? 'smash' : k, on = s.key === key && (k !== 'flat' || (s.a >= -12 && s.a <= 22)) && (k === 'flat' || s.a > 22 || s.a < -12) && s.key !== 'drop';
+    const on = s.zone === k;
     c.beginPath(); c.arc(cx, cy, r2, a0 * deg, a1 * deg); c.arc(cx, cy, r1, a1 * deg, a0 * deg, true); c.closePath();
     c.fillStyle = k === 'flat' ? 'rgba(255,140,90,' + (on ? 0.42 : 0.1) + ')' : (k === 'clear' ? 'rgba(60,195,230,' : 'rgba(255,106,61,') + (on ? 0.45 : 0.12) + ')';
     c.fill();
   }
   c.beginPath(); c.arc(cx, cy, r1 - 2, 0, Math.PI * 2);
-  c.fillStyle = 'rgba(255,215,138,' + (s.key === 'drop' ? 0.32 : 0.08) + ')'; c.fill();
+  c.fillStyle = 'rgba(255,215,138,' + (s.zone === 'drop' ? 0.32 : 0.08) + ')'; c.fill();
   c.font = `600 11px ${FB}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = 'rgba(232,239,233,0.85)';
   c.fillText('клир', cx, cy - r2 + 12); c.fillText('смэш', cx, cy + r2 - 12); c.fillText('драйв', cx + r2 - 16, cy - 1); c.fillText('дроп', cx, cy);
   c.restore();
@@ -1729,7 +1910,7 @@ function drawDragAim(c, dt) {
   const me = myPlayer();
   if (!me || cfg.control !== 'mouse') { drag.last = null; return; }
   if (drag.on) {
-    const v = dragVec(), s = dragShot(v.dx, v.dy, v.speed, v.len), info = aimInfo(s, me);
+    const s = stickyShot(), info = aimInfo(s, me);
     drawCompass(c, drag.x0, drag.y0, s, 0.9);
     c.save(); c.strokeStyle = 'rgba(232,239,233,0.55)'; c.lineWidth = 1.5;
     c.beginPath(); c.moveTo(drag.x0, drag.y0); c.lineTo(drag.x, drag.y); c.stroke();
@@ -1762,7 +1943,8 @@ window.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   unlockAudio();
   drag.on = true; drag.id = e.pointerId; drag.x0 = drag.x = e.clientX; drag.y0 = drag.y = e.clientY;
-  drag.pts = [[performance.now(), e.clientX, e.clientY]]; drag.last = null;
+  drag.pts = [[performance.now(), e.clientX, e.clientY]]; drag.last = null; drag.cur = null;
+  chargeStart();
   try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   e.preventDefault();
 });
@@ -1776,16 +1958,17 @@ window.addEventListener('pointermove', e => {
 function endDrag(e, fire) {
   if (!drag.on || e.pointerId !== drag.id) return;
   drag.x = e.clientX; drag.y = e.clientY; drag.pts.push([performance.now(), e.clientX, e.clientY]);
-  drag.on = false;
+  const s = stickyShot();
+  drag.on = false; chargeStop();
   const me = myPlayer();
   if (!fire || !me || game.paused || game.state === 'over') return;
-  const v = dragVec(), s = dragShot(v.dx, v.dy, v.speed, v.len);
+  sndWhoosh(s.pw);
   drag.last = { s, info: aimInfo(s, me), t: 0 };
   humanAction(me, s.key, { place: s.place, pw: s.pw });
 }
 window.addEventListener('pointerup', e => endDrag(e, true));
 window.addEventListener('pointercancel', e => endDrag(e, false));
-window.addEventListener('blur', () => { drag.on = false; });
+window.addEventListener('blur', () => { drag.on = false; chargeStop(); });
 canvas.addEventListener('contextmenu', e => { if (game.mode !== 'demo' && $('menu').hidden) e.preventDefault(); });
 window.addEventListener('contextmenu', e => { if (cfg.control === 'mouse' && game.mode !== 'demo' && $('menu').hidden && e.target === canvas) e.preventDefault(); });
 
@@ -1802,6 +1985,16 @@ function pointStatus() {
 }
 const PS_TEXT = { gp: 'геймбол', golden: 'решающее очко', deuce: 'больше-меньше' };
 function updateBoard() {
+  if (game.mode === 'train' && game.train) {
+    const t = game.train;
+    $('pts0').textContent = t.score; $('pts1').textContent = t.left;
+    $('name0').textContent = P[0].name; $('name1').textContent = 'осталось';
+    $('pts0').style.color = P[0].color; $('pts1').style.color = 'var(--muted)';
+    $('side0').classList.remove('serving'); $('side1').classList.remove('serving');
+    $('boardMid').textContent = t.streak >= 2 ? 'серия ' + t.streak : 'тренировка'; $('boardMid').classList.toggle('hot', t.streak >= 3);
+    document.title = t.score + ' очк. · тренировка · Смэш мне в ногу';
+    return;
+  }
   const L = mirror ? 1 : 0, Rr = 1 - L;
   $('pts0').textContent = game.score[L]; $('pts1').textContent = game.score[Rr];
   $('name0').textContent = P[L].name; $('name1').textContent = P[Rr].name;
@@ -1822,7 +2015,7 @@ function updateHint() {
     const b = game.mode === '2p' && game.server === 1 ? ['O', 'U', 'K'] : ['Q', 'E', 'S'];
     el.innerHTML = cfg.control === 'mouse' && game.mode !== '2p' ? '<span class="serve">Подача мышью: потяни вверх — высокая, коротко — короткая, вниз — флик</span>'
       : `<span class="serve">Подача: <kbd>${b[0]}</kbd> высокая · <kbd>${b[1]}</kbd> короткая · <kbd>${b[2]}</kbd> флик</span>`;
-  } else if (game.mode === '1p' || game.mode === 'online') {
+  } else if (game.mode === '1p' || game.mode === 'online' || game.mode === 'train') {
     el.innerHTML = (cfg.control === 'mouse' ? '<span><kbd>A</kbd> <kbd>D</kbd> бег · <kbd>W</kbd> или правая кнопка — прыжок · удар: зажми левую, потяни, отпусти</span><span><kbd>Esc</kbd> пауза</span>' : '<span><kbd>A</kbd> <kbd>D</kbd> бег · <kbd>W</kbd> прыжок · <kbd>Q</kbd> клир · <kbd>E</kbd> дроп · <kbd>S</kbd> смэш</span><span><kbd>Esc</kbd> пауза</span>') + (game.mode === 'online' ? '<span class="ping" id="ping"></span>' : '');
   } else {
     el.innerHTML = '<span>Слева: <kbd>Q</kbd> <kbd>E</kbd> <kbd>S</kbd> удары</span><span>Справа: <kbd>O</kbd> <kbd>U</kbd> <kbd>K</kbd> удары</span><span><kbd>Esc</kbd> пауза</span>';
@@ -1861,6 +2054,7 @@ function togglePause(force) {
 }
 
 $('playAi').addEventListener('click', () => { if (!needName()) startGame('1p'); });
+$('playTrain').addEventListener('click', () => { if (!needName()) startGame('train'); });
 $('resume').addEventListener('click', () => togglePause(false));
 $('toMenu1').addEventListener('click', toMenu);
 $('toMenu2').addEventListener('click', toMenu);
@@ -2239,13 +2433,15 @@ profile.name = cleanName(profile.name);
 }
 const store = { recs: [], names: {} };
 { const r = loadJSON('bdm-recs', []), n = loadJSON('bdm-names', {}), b = loadJSON('bdm-best', {}), ra = loadJSON('bdm-rally', {}), cl = loadJSON('bdm-cloud', []); if (Array.isArray(r)) store.recs = r; if (n && typeof n === 'object') store.names = n; store.best = b && typeof b === 'object' ? b : {}; store.rally = ra && typeof ra === 'object' ? ra : {}; store.cloud = new Set(Array.isArray(cl) ? cl.slice(-6000) : []); }
+store.train = (() => { const t = loadJSON('bdm-train', {}); return t && typeof t === 'object' ? t : {}; })();
+function noteTrain(pid, n) { if (!PID.test(pid) || !Number.isInteger(n) || n < 1 || n > 999) return false; if ((store.train[pid] || 0) >= n) return false; store.train[pid] = n; return true; }
 store.alias = (() => { const a = loadJSON('bdm-alias', {}); return a && typeof a === 'object' ? a : {}; })();
 // один игрок мог появиться под разными id (другой браузер, вход по ПИНу) — считаем всё на основной id
 function canon(pid) { let p = pid; for (let i = 0; i < 5 && store.alias[p]; i++) p = store.alias[p]; return p; }
 function bestOf(pid, src) { let m = 0; for (const k in src) if (canon(k) === pid && src[k] > m) m = src[k]; return m; }
 function adoptAlias() { const c = canon(profile.pid); if (c !== profile.pid) { profile.pid = c; saveJSON('bdm-profile', profile); return true; } return false; }
 adoptAlias();
-function saveStore() { if (store.recs.length > 800) store.recs = store.recs.slice(-800); saveJSON('bdm-alias', store.alias); saveJSON('bdm-recs', store.recs); saveJSON('bdm-names', store.names); saveJSON('bdm-best', store.best); saveJSON('bdm-rally', store.rally); saveJSON('bdm-cloud', [...store.cloud].slice(-6000)); }
+function saveStore() { if (store.recs.length > 800) store.recs = store.recs.slice(-800); saveJSON('bdm-alias', store.alias); saveJSON('bdm-train', store.train); saveJSON('bdm-recs', store.recs); saveJSON('bdm-names', store.names); saveJSON('bdm-best', store.best); saveJSON('bdm-rally', store.rally); saveJSON('bdm-cloud', [...store.cloud].slice(-6000)); }
 function noteBest(pid, kmh) { if (!PID.test(pid) || !Number.isInteger(kmh) || kmh < 20 || kmh > 400) return false; if ((store.best[pid] || 0) >= kmh) return false; store.best[pid] = kmh; return true; }
 function updateBest(kmh) { if (noteBest(profile.pid, kmh)) { saveStore(); renderHello(); renderStandings(); } }
 function noteRally(pid, n) { if (!PID.test(pid) || !Number.isInteger(n) || n < 1 || n > 999) return false; if ((store.rally[pid] || 0) >= n) return false; store.rally[pid] = n; return true; }
@@ -2325,7 +2521,18 @@ function renderStandings() {
   }
   $('lbEmpty').hidden = rows.length > 0;
 }
+function trainTop() {
+  const best = {};
+  for (const pid in store.train) { const c = canon(pid); best[c] = Math.max(best[c] || 0, store.train[pid]); }
+  const nameOf = pid => pid === profile.pid ? profile.name : store.names[pid] ? store.names[pid][0] : 'Игрок';
+  return Object.entries(best).map(([pid, n]) => ({ pid, n, name: nameOf(pid) })).sort((a, b) => b.n - a.n);
+}
+function renderTrainNote() {
+  const mine = bestOf(profile.pid, store.train), top = trainTop()[0];
+  $('trainNote').textContent = mine ? 'Твой рекорд ' + mine + (top && top.pid !== profile.pid ? ' · лучший у ' + top.name + ': ' + top.n : '') : 'Робот подаёт 20 воланов, клади их в подсвеченные зоны';
+}
 function renderHello() {
+  renderTrainNote();
   $('meName').textContent = profile.name || 'Без имени';
   $('meAva').textContent = (profile.name || '?').charAt(0).toUpperCase();
   $('meAva').style.background = pidColor(profile.pid);
@@ -2503,10 +2710,10 @@ async function cloudSync() {
       pending.forEach(r => store.cloud.add(r.id));
     }
     if (profile.name) await cloudReq('players?on_conflict=pid', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify([{ pid: profile.pid, name: profile.name, best_smash: store.best[profile.pid] || 0, best_rally: store.rally[profile.pid] || 0, updated_at: new Date().toISOString() }]) });
+      body: JSON.stringify([{ pid: profile.pid, name: profile.name, best_smash: store.best[profile.pid] || 0, best_rally: store.rally[profile.pid] || 0, best_train: bestOf(profile.pid, store.train) || 0, updated_at: new Date().toISOString() }]) });
     const [ms, ps, al] = await Promise.all([
       cloudReq('matches?select=id,t,k,a,b,w,p,lv,win,s1,s2&order=t.desc&limit=5000'),
-      cloudReq('players?select=pid,name,best_smash,best_rally,updated_at&limit=3000'),
+      cloudReq('players?select=pid,name,best_smash,best_rally,best_train,updated_at&limit=3000'),
       cloudReq('aliases?select=from_pid,to_pid&limit=3000').catch(() => null),
     ]);
     for (const x of al || []) if (PID.test(x.from_pid) && PID.test(x.to_pid) && x.from_pid !== x.to_pid) store.alias[x.from_pid] = x.to_pid;
@@ -2514,7 +2721,7 @@ async function cloudSync() {
     const fresh = (ms || []).map(fromRow);
     fresh.forEach(r => store.cloud.add(r.id));
     addRecs(fresh);
-    for (const pl of ps || []) { noteName(pl.pid, pl.name, Date.parse(pl.updated_at) || 1); noteBest(pl.pid, pl.best_smash | 0); noteRally(pl.pid, pl.best_rally | 0); }
+    for (const pl of ps || []) { noteName(pl.pid, pl.name, Date.parse(pl.updated_at) || 1); noteBest(pl.pid, pl.best_smash | 0); noteRally(pl.pid, pl.best_rally | 0); noteTrain(pl.pid, pl.best_train | 0); }
     saveStore(); cloudOk = true;
   } catch (e) { cloudOk = false; }
   finally { cloudBusy = false; renderStandings(); renderHello(); renderFoot(); }
@@ -2934,7 +3141,7 @@ function frame(now) {
 
 // Для отладки и автотестов
 window.__bdm = {
-  game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact, dragShot, drag, syncTune,
+  game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact, dragShot, drag, syncTune, stickyShot,
   fastForward(sec) { const n = Math.round(sec / H); for (let i = 0; i < n && game.state !== 'over'; i++) step(H); game.hitstop = 0; },
 };
 
