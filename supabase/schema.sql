@@ -15,7 +15,7 @@ create table if not exists public.matches (
   b text check (b ~ '^[a-z0-9]{6,16}$'),
   w text,
   p text check (p ~ '^[a-z0-9]{6,16}$'),               -- против ИИ: игрок, уровень, победа
-  lv text check (lv in ('easy', 'medium', 'hard')),
+  lv text check (lv in ('easy', 'medium', 'hard', 'smart')),  -- smart — «умный», с 18.11.2026
   win boolean,
   s1 integer check (s1 between 0 and 30),
   s2 integer check (s2 between 0 and 30),

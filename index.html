@@ -40,7 +40,9 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; background: var(--hall); color: var(--ink); font-family: var(--font-body); overflow: hidden; -webkit-user-select: none; user-select: none; }
+html, body { height: 100%; margin: 0; background: var(--hall); color: var(--ink); font-family: var(--font-body); overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+/* iOS не слушает user-scalable=no: без этого двойной тап мимо кнопки увеличивает страницу. Прокрутка меню остаётся */
+html, body, body * { touch-action: manipulation; }
 canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
@@ -187,6 +189,7 @@ body.menu-open #board .init { display: none; }
 .field.pin { letter-spacing: 0.6em; font-weight: 700; }
 .field.pin::placeholder { letter-spacing: normal; font-weight: 500; }
 .seg.two { grid-template-columns: 1fr 1fr; }
+#diffSeg { grid-template-columns: repeat(4, 1fr); }
 .seg[hidden] { display: none; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--lamp); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 #nameDlg .name-warn, #nameDlg .name-err { text-align: left; padding-left: 4px; }
@@ -203,6 +206,8 @@ body.menu-open #board .init { display: none; }
 .reacts button:hover { border-color: rgba(232, 239, 233, 0.4); }
 .reacts kbd { min-width: 20px; text-align: center; }
 body.touch .reacts kbd { display: none; }
+/* на телефоне короткие фразы встают в ряд: 5 штук в 3 строки, не налезают на ◀ ▶ на низком экране */
+body.touch .reacts { display: flex; flex-wrap: wrap; align-content: flex-start; max-width: 156px; }
 body.menu-open .reacts { display: none; }
 .rotate { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; padding: 24px; background: rgba(8, 13, 15, 0.96); text-align: center; }
 .rotate p { margin: 0; font: 700 18px var(--font-display); line-height: 1.35; }
@@ -264,8 +269,9 @@ body.touch #touch { display: block; }
 body.touch #hint { display: none; }
 body.touch .only-touch { display: block; }
 body.touch .only-keys { display: none; }
-.tpad { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); display: grid; gap: 10px; }
-.tpad.left { left: calc(14px + env(safe-area-inset-left)); grid-template-columns: 72px 72px; }
+.tpad { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); display: grid; gap: 10px; touch-action: none; }
+.tpad.left { left: calc(14px + env(safe-area-inset-left)); grid-template-columns: 88px 88px; gap: 8px; }
+.tpad.left .tbtn { width: 88px; height: 76px; font-size: 26px; }
 .tpad.right { right: calc(14px + env(safe-area-inset-right)); grid-template-columns: 72px 72px; }
 .tbtn { width: 72px; height: 60px; border-radius: 16px; border: 1px solid var(--edge); background: rgba(14, 22, 24, 0.32); color: var(--ink); font-size: 12px; font-weight: 600; touch-action: none; }
 .tbtn.big { font-size: 22px; }
@@ -492,6 +498,7 @@ body.touch .rules-cta { max-width: none; }
             <button role="radio" data-diff="easy" aria-checked="false">Лёгкий</button>
             <button role="radio" data-diff="medium" aria-checked="true">Средний</button>
             <button role="radio" data-diff="hard" aria-checked="false">Сложный</button>
+            <button role="radio" data-diff="smart" aria-checked="false">Умный</button>
           </div>
           <div class="play-row">
             <button class="btn go block" id="playAi">Играть</button>
@@ -505,7 +512,7 @@ body.touch .rules-cta { max-width: none; }
 
       <article class="tile t-net" id="onlineCard" aria-labelledby="hNet">
         <div class="tile-head"><h2 id="hNet">С другом по сети</h2><span class="tile-tag">1 на 1</span></div>
-        <p class="tile-sub">Один создаёт комнату, второй входит по коду. Каждый видит себя слева, а подколоть соперника можно реакциями на 1–4</p>
+        <p class="tile-sub">Один создаёт комнату, второй входит по коду. Каждый видит себя слева, а подколоть соперника можно реакциями на 1–5</p>
         <div class="tile-foot" id="netControls">
           <p class="inapp" id="inapp" hidden>Ты во встроенном браузере приложения. Если онлайн не соединяется, открой ссылку в Safari или Chrome.</p>
           <div class="lobby" id="lobby" hidden>
@@ -670,8 +677,9 @@ body.touch .rules-cta { max-width: none; }
 <div class="reacts" id="reacts" hidden aria-label="Реакции">
   <button data-r="0"><kbd>1</kbd>Смэш мне в ногу!</button>
   <button data-r="1"><kbd>2</kbd>Ну ты даёшь</button>
-  <button data-r="2"><kbd>3</kbd>Реванш?</button>
+  <button data-r="2"><kbd>3</kbd>Ахах</button>
   <button data-r="3"><kbd>4</kbd>GG</button>
+  <button data-r="4"><kbd>5</kbd>лол</button>
 </div>
 
 <div class="rotate" id="rotate" aria-live="polite"><div><span class="phone" aria-hidden="true"></span><p>Поверни телефон горизонтально</p><small>Корт широкий, так удобнее играть</small></div></div>
@@ -713,6 +721,8 @@ const DIFFS = {
   easy:   { label: 'лёгкий',  react: 0.38, speed: 0.74, timing: 0.06,  spread: 1.7, judgeOut: 0.45, aggr: 0.6, power: 0.88, err: 1.7, perfect: 0.25, risk: 0.12 },
   medium: { label: 'средний', react: 0.27, speed: 0.86, timing: 0.03,  spread: 1.0, judgeOut: 0.8,  aggr: 1.0, power: 0.95, err: 1.0, perfect: 0.45, risk: 0.28 },
   hard:   { label: 'сложный', react: 0.19, speed: 0.95, timing: 0.012, spread: 0.6, judgeOut: 0.95, aggr: 1.3, power: 1.0, err: 0.55, perfect: 0.65, risk: 0.42 },
+  // умный: всё как у сложного, кроме read — он запоминает удары соперника и встаёт заранее (раздел ИИ, «Чтение»)
+  smart:  { label: 'умный',   react: 0.19, speed: 0.95, timing: 0.012, spread: 0.6, judgeOut: 0.95, aggr: 1.3, power: 1.0, err: 0.55, perfect: 0.65, risk: 0.42, read: true },
 };
 
 // Стили игры: по сути, баланс ракетки
@@ -828,7 +838,8 @@ const game = {
 
 function opponent(p) { return P[1 - p.idx]; }
 function clampX(p, x) { return p.face === 1 ? clamp(x, -0.9, NET - 0.35) : clamp(x, NET + 0.35, COURT + 0.9); }
-function basePos(p) { return NET - p.face * 3.3; }
+const BASE_DEPTH = 3.3; // где ИИ ждёт удара соперника, м от сетки
+function basePos(p) { return NET - p.face * BASE_DEPTH; }
 
 function localIdx() { return game.mode === 'online' ? Net.myIdx : 0; }
 function setupMode(mode, diff) {
@@ -861,6 +872,7 @@ function newGame() {
   for (const p of P) { p.sta = 1; p.press = 0; }
   game.score = [0, 0]; game.over = null; game.server = 0; game.time = 0;
   game.popups = []; game.wall = null; game.bubbles = []; game.feet = [0, 0];
+  for (const p of P) if (isReader(p)) p.ai.read = readFresh();
   if (game.mode === 'train') { game.server = 1; trainStart(); return; }
   setupServe();
   updateBoard();
@@ -873,6 +885,7 @@ function setupServe() {
   Object.assign(sh, { held: true, inPlay: false, lastHitter: null, netHit: false, isServe: false, trail: [], predLand: null, vx: 0, vy: 0, ang: -Math.PI / 2 });
   game.mark = null;
   placeInHand(srv);
+  for (const p of P) if (isReader(p)) readServe(p, srv);
   game.state = 'serve'; game.stateT = 0; game.rallyHits = 0; game.posEpoch++;
   updateBoard(); updateHint();
 }
@@ -1003,6 +1016,7 @@ function launch(p, sol, v, info = {}) {
   if (info.perfect) fx('popup', 'Чисто', +sh.x.toFixed(2), +(sh.y + 0.45).toFixed(2), COLORS.lamp, false, false);
   fx('popup', lbl + (fast ? ' · ' + kmh + ' км/ч' : ''), +sh.x.toFixed(2), +(sh.y + 0.45).toFixed(2), info.perfect ? COLORS.lamp : p.color, v === 'smash', false);
   applyPressure(p, v, info);
+  if (game.mode !== 'train') for (const r of P) if (isReader(r)) { if (r === p) readAim(r, v); else readObserve(r, v, info.place); }
   // перехват: чистый отбой чужого смэша драйвом, блоком или атакой (свеча не считается) — давление переходит на смэшиста
   if (prevV === 'smash' && prevHitter && prevHitter !== p && info.perfect && v !== 'lift' && game.mode !== 'train') {
     p.press = 0; prevHitter.press = clamp(prevHitter.press + COUNTER_PRESS, 0, 1); prevHitter.charge = 0;
@@ -1066,13 +1080,23 @@ function award(w, label, shout) {
   game.server = w.idx;
   game.state = 'point'; game.stateT = 0;
   updateBestRally(game.rallyHits);
+  for (const p of P) if (isReader(p)) readKeep(p);
   fx('popup', shout || label, +clamp(sh.x, VIEW_L + 1, VIEW_R - 1).toFixed(2), 0.75, shout ? COLORS.lamp : w.color, true, true);
   const a = game.score[w.idx], b = game.score[1 - w.idx];
   if ((a >= game.target && a - b >= 2) || a >= TARGETS[game.target]) game.over = w.idx;
   fx('point', w.idx);
   if (w.ai && sh.lastHitter === w && sh.variant === 'smash' && label !== 'Аут') aiReact(0, 350, shout ? 1 : 0.45);
   else if (!w.ai && P[1 - w.idx].ai && sh.lastHitter === w && sh.variant === 'smash' && label !== 'Аут') aiReact(1, 450, shout ? 0.8 : 0.3);
+  else if (w.ai && sillyMiss(w, label) && Math.random() < 0.6) { game.laughR = st.rallies; aiReact(aiLaugh(), 500); }
   updateBoard(); updateHint();
+}
+// Игрок отдал очко по-глупому: в сетку, подача не долетела, аут больше чем на полметра,
+// прозевал не-смэш, упавший в метре от себя. Не чаще раза в три розыгрыша, чтобы не надоедало
+function sillyMiss(bot, label) {
+  const me = opponent(bot);
+  if (game.mode !== '1p' || me.ai || game.stats.rallies - (game.laughR ?? -9) < 3) return false;
+  if (sh.lastHitter === me) return label !== 'Аут' || Math.max(-sh.x, sh.x - COURT) > 0.5;
+  return label === 'В корт' && sh.variant !== 'smash' && Math.abs(sh.x - me.x) < 1;
 }
 
 /* ========= ИИ ========= */
@@ -1088,6 +1112,15 @@ function makePlan(p, d) {
   const landMine = (pred.landX - NET) * p.face < 0;
   const outBy = p.face === 1 ? -pred.landX : pred.landX - COURT;
   if (landMine && outBy > 0.08 && Math.random() < d.judgeOut) return { leave: true };
+  const best = planFrom(p, d, pred, p.x);
+  // попасть в чистый удар ИИ удаётся не всегда: иначе бьёт раньше, на краю досягаемости
+  best.lead = Math.random() < d.perfect ? 0.015 + d.timing * rs() : rnd(0.06, 0.13);
+  // умный запоминает, где взял бы этот удар из обычной точки ожидания (а не оттуда, куда сам сместился)
+  if (d.read) readLearnDepth(p, planFrom(p, d, pred, basePos(p)).x);
+  return best;
+}
+// лучшая точка удара по траектории pred, если бежать из fromX
+function planFrom(p, d, pred, fromX) {
   const spd = cfg.runSpeed * d.speed * styleOf(p).speed * fatigueSpeed(p) * (p.recover > 0 ? 0.75 : 1), R = reachOf(p) * 0.92;
   let best = null, lastMine = null;
   for (const pt of pred.pts) {
@@ -1096,7 +1129,7 @@ function makePlan(p, d) {
     if (pt.y < 0.3) continue;
     const off = pt.y > 1.9 ? 0.3 : 0.45;
     const px = clampX(p, pt.x - p.face * off);
-    const dist = Math.abs(px - p.x);
+    const dist = Math.abs(px - fromX);
     const slack = pt.t - (dist / spd + (dist > 0.05 ? 0.22 : 0));
     if (slack < 0.02) continue;
     const dx = pt.x - px;
@@ -1111,8 +1144,6 @@ function makePlan(p, d) {
     const tgt = lastMine || { x: pred.landX, y: 0.5, t: pred.t };
     best = { x: clampX(p, tgt.x - p.face * 0.4), t: game.time + tgt.t, y: tgt.y, jump: false };
   }
-  // попасть в чистый удар ИИ удаётся не всегда: иначе бьёт раньше, на краю досягаемости
-  best.lead = Math.random() < d.perfect ? 0.015 + d.timing * rs() : rnd(0.06, 0.13);
   return best;
 }
 function pickWeighted(w) {
@@ -1122,6 +1153,9 @@ function pickWeighted(w) {
   return Object.keys(w)[0];
 }
 function aiChooseShot(p, cy, d) {
+  // для тестов: ai.bot = { key, place } — однообразный соперник, 'any' — случайный удар и прицел
+  const bot = p.ai.bot;
+  if (bot) { const any = bot === 'any'; p.ai.place = any ? Math.floor(Math.random() * 3) - 1 : bot.place || 0; return any ? pickWeighted({ clear: 1, drop: 1, smash: 1 }) : bot.key; }
   const key = aiPickKey(p, cy, d);
   const o = opponent(p), oDepth = Math.abs(o.x - NET);
   // рисковать с направлением ИИ решается чаще, когда свеж и соперник под давлением
@@ -1146,16 +1180,18 @@ function aiUpdate(p, h) {
       ai.serveTimer -= h;
       if (ai.serveTimer <= 0) {
         ai.served = true;
-        p.shotReq = ai.diff === 'easy' ? pickWeighted({ clear: 0.7, drop: 0.3 }) : ai.diff === 'medium' ? pickWeighted({ clear: 0.5, drop: 0.4, smash: 0.1 }) : pickWeighted({ clear: 0.35, drop: 0.5, smash: 0.15 });
+        p.shotReq = ai.bot ? (ai.bot === 'any' ? pickWeighted({ clear: 1, drop: 1, smash: 1 }) : ai.bot.key) : ai.diff === 'easy' ? pickWeighted({ clear: 0.7, drop: 0.3 }) : ai.diff === 'medium' ? pickWeighted({ clear: 0.5, drop: 0.4, smash: 0.1 }) : pickWeighted({ clear: 0.35, drop: 0.5, smash: 0.15 });
       }
     }
     return;
   }
   if (game.state !== 'rally') { steer(p, basePos(p), 0.5); return; }
   const incoming = sh.inPlay && sh.lastHitter && sh.lastHitter !== p;
-  if (!incoming) { ai.plan = null; steer(p, basePos(p)); return; }
+  // умный ждёт не в центре, а ближе к тому, куда соперник, скорее всего, ответит (если уверен)
+  const home = d.read ? readHome(p) : basePos(p);
+  if (!incoming) { ai.plan = null; steer(p, home); return; }
   if (ai.seen !== game.hitId) { ai.seen = game.hitId; ai.react = d.react * rnd(0.75, 1.3) + (Math.hypot(sh.vx, sh.vy) > 35 ? 0.07 : 0) + p.press * 0.08; ai.plan = null; }
-  if (ai.react > 0) { ai.react -= h; steer(p, basePos(p), 0.35); return; }
+  if (ai.react > 0) { ai.react -= h; steer(p, d.read ? readLean(p) : home, 0.35); return; }
   if (!ai.plan) ai.plan = makePlan(p, d);
   const plan = ai.plan;
   if (plan.leave) { steer(p, basePos(p), 0.5); return; }
@@ -1163,6 +1199,141 @@ function aiUpdate(p, h) {
   const tTo = plan.t - game.time;
   if (plan.jump && p.onGround && tTo <= 0.38 && tTo > 0.1) p.jumpReq = 0.05;
   if (!plan.pressed && tTo <= plan.lead) { plan.pressed = true; p.shotReq = aiChooseShot(p, plan.y, d); }
+}
+
+/* Чтение: умный ИИ учится на ударах соперника и встаёт заранее. Физика у него как у сложного — выигрыш только от предвидения.
+   Ситуация — каким ударом ИИ только что ответил (высокий / атакующий / мягкий), куда тот падает (у сетки / середина / зад)
+   и под давлением ли соперник; подача соперника — своя ситуация. В каждой копим, какой удар и с каким прицелом выбрал соперник,
+   свежие удары весят больше. Где своих данных мало, подмешиваем ситуацию попроще (без давления, потом без глубины).
+   Удары, которые приходится брать примерно в одном месте, складываются в один прогноз. Если он уверенный, ИИ ждёт ближе
+   к нему (не дальше READ.SHIFT от обычной точки) и, пока «видит» удар, тянется туда же. Ошибся — стоит не там, это его риск. */
+const READ = {
+  SHIFT: 0.9,  // насколько дальше обычной точки ожидания готов встать, м
+  WIN: 0.7,    // удары, которые берут в полосе шириной 2·WIN, — один прогноз, м
+  THR: 0.6,    // с какой уверенности начинает смещаться, полностью — с THR + FULL
+  FULL: 0.2,
+  Z: 1.5,      // запас на случайность в оценке уверенности, в стандартных отклонениях
+  DECAY: 0.85, // в той же ситуации старые удары забываются: важны последние 6–7
+  PRIOR: 2,    // сколько весит ситуация попроще
+  CARRY: 0.35, // какая доля памяти прошлой партии переходит в новую
+  LEARN: 0.3,  // как быстро уточняется, где приходится брать каждый удар
+};
+// где обычно приходится брать удар соперника, м от сетки, — пока ИИ не выучил сам
+const READ_DEPTH = {
+  'clear-1': 5.6, clear0: 5.3, clear1: 5.0, 'lift-1': 5.4, lift0: 5.1, high0: 5.5, flick0: 5.2,
+  drop1: 1.4, drop0: 1.8, 'drop-1': 2.4, net1: 1.0, net0: 1.1, block0: 1.8, short0: 1.9,
+  smash1: 2.6, smash0: 3.5, 'smash-1': 4.3, drive1: 2.9, drive0: 4.0,
+};
+const SHOT_GROUP = { clear: 'h', lift: 'h', high: 'h', smash: 'a', drive: 'a', flick: 'a', drop: 's', net: 's', block: 's', short: 's' };
+let readMem = null; // память между партиями; в игре против ИИ она же в localStorage (bdm-read), в демо и тестах — только здесь
+const isReader = p => !!(p && p.ai && DIFFS[p.ai.diff] && DIFFS[p.ai.diff].read);
+const readWho = () => game.mode === '1p' ? profile.pid : game.mode;
+const readDepth = (m, c) => m.mu[c] !== undefined ? m.mu[c] : READ_DEPTH[c];
+const readChain = ctx => ctx === 'srv' ? ['srv'] : [ctx[0], ctx.slice(0, 2), ctx];
+function readFresh() {
+  const m = { t: {}, mu: {}, ctx: null, pred: null, cls: null, shown: -1 };
+  let src = readMem && readMem.who === readWho() ? readMem : null;
+  if (!src && game.mode === '1p') { const s = loadJSON('bdm-read', null); if (s && s.who === profile.pid) src = s; }
+  if (!src) return m;
+  const num = v => typeof v === 'number' && isFinite(v) && v >= 0 && v < 100;
+  for (const k in src.t || {}) {
+    const row = src.t[k];
+    if (!/^(srv|[has]|[has][fmb]p?)$/.test(k) || !row || typeof row !== 'object') continue;
+    for (const c in row) if (READ_DEPTH[c] !== undefined && num(row[c])) (m.t[k] || (m.t[k] = {}))[c] = row[c] * READ.CARRY;
+  }
+  for (const c in src.mu || {}) if (READ_DEPTH[c] !== undefined && num(src.mu[c]) && src.mu[c] <= NET) m.mu[c] = src.mu[c];
+  return m;
+}
+const readModel = p => p.ai.read || (p.ai.read = readFresh());
+// после каждого очка: память для следующей партии
+function readKeep(p) {
+  const m = p.ai.read; if (!m) return;
+  readMem = { who: readWho(), t: m.t, mu: m.mu };
+  if (game.mode !== '1p') return;
+  const r2 = v => Math.round(v * 100) / 100, t = {}, mu = {};
+  for (const k in m.t) for (const c in m.t[k]) if (m.t[k][c] >= 0.05) (t[k] || (t[k] = {}))[c] = r2(m.t[k][c]);
+  for (const c in m.mu) mu[c] = r2(m.mu[c]);
+  saveJSON('bdm-read', { who: profile.pid, t, mu });
+}
+// какие удары вероятны в ситуации; остаток до единицы — «не знаю»
+function readProbs(m, ctx) {
+  let pr = {}, n = 0;
+  for (const k of readChain(ctx)) {
+    const t = m.t[k] || {}, out = {};
+    n = 0; for (const c in t) n += t[c];
+    for (const c in pr) out[c] = READ.PRIOR * pr[c] / (n + READ.PRIOR);
+    for (const c in t) out[c] = (out[c] || 0) + t[c] / (n + READ.PRIOR);
+    pr = out;
+  }
+  return { pr, n: n + READ.PRIOR };
+}
+// прогноз: самая «тяжёлая» точка, где придётся брать удар, и уверенность в ней; null — не уверен
+function readPredict(m, ctx) {
+  const { pr, n } = readProbs(m, ctx);
+  const list = Object.keys(pr).map(c => ({ p: pr[c], d: readDepth(m, c) })).sort((a, b) => a.d - b.d);
+  let best = null;
+  for (let i = 0; i < list.length; i++) {
+    let mass = 0, sum = 0;
+    let j = i;
+    for (; j < list.length && list[j].d - list[i].d <= 2 * READ.WIN; j++) { mass += list[j].p; sum += list[j].p * list[j].d; }
+    if (!best || mass > best.conf) best = { conf: mass, depth: sum / mass, lo: list[i].d, hi: list[j - 1].d };
+  }
+  if (!best) return null;
+  // уверенность с запасом на случайность: пять одинаковых ударов подряд у разнообразного игрока — ещё не привычка
+  const sure = best.conf - READ.Z * Math.sqrt(best.conf * (1 - best.conf) / n);
+  if (sure < READ.THR) return null;
+  best.k = clamp((sure - READ.THR) / READ.FULL, 0, 1);
+  best.shift = clamp(best.depth - BASE_DEPTH, -READ.SHIFT, READ.SHIFT) * best.k;
+  return best;
+}
+// подаёт соперник — гадаем, какой будет подача; подаёт сам — ситуацию задаст его подача
+function readServe(p, srv) {
+  const m = readModel(p);
+  m.ctx = srv === p ? null : 'srv'; m.pred = m.ctx ? readPredict(m, m.ctx) : null; m.cls = null;
+}
+// ИИ ударил: запоминаем ситуацию, в которой будет отвечать соперник, и сразу гадаем ответ
+function readAim(p, v) {
+  const m = readModel(p), dep = Math.abs(sh.predLand - NET);
+  m.ctx = (SHOT_GROUP[v] || 's') + (dep < 2.3 ? 'f' : dep < 4.6 ? 'm' : 'b') + (opponent(p).press >= 0.35 ? 'p' : '');
+  m.pred = readPredict(m, m.ctx);
+}
+// соперник ударил: угадал ли ИИ и что запомнить
+function readObserve(p, v, place) {
+  const m = readModel(p), cls = v + (place || 0);
+  if (!m.ctx || READ_DEPTH[cls] === undefined) { m.cls = null; return; }
+  const st = game.stats.read || (game.stats.read = { shots: 0, sure: 0, right: 0, shown: 0 });
+  st.shots++;
+  const pr = m.pred;
+  if (pr) {
+    st.sure++;
+    const dc = readDepth(m, cls);
+    if (dc >= pr.lo - 0.2 && dc <= pr.hi + 0.2) {
+      st.right++;
+      // «Читаю тебя» — не чаще раза за розыгрыш и только когда ИИ заметно сместился: пора менять удары
+      if (m.shown !== game.posEpoch && Math.abs(pr.shift) >= 0.3) {
+        m.shown = game.posEpoch; st.shown++;
+        fx('popup', 'Читаю тебя', +clamp(p.x, VIEW_L + 1, VIEW_R - 1).toFixed(2), +(p.y + 3.2).toFixed(2), p.color, true, false);
+      }
+    }
+  }
+  for (const k of readChain(m.ctx)) { const t = m.t[k] || (m.t[k] = {}); for (const c in t) t[c] *= READ.DECAY; t[cls] = (t[cls] || 0) + 1; }
+  m.cls = cls; m.ctx = null;
+}
+// где на самом деле пришлось брать этот удар — уточняем точку для прогноза
+function readLearnDepth(p, x) {
+  const m = p.ai.read; if (!m || !m.cls) return;
+  m.mu[m.cls] = lerp(readDepth(m, m.cls), Math.abs(x - NET), READ.LEARN);
+  m.cls = null;
+}
+// где ждать удара: обычная точка, сдвинутая к прогнозу
+function readHome(p) {
+  const pr = p.ai.read && p.ai.read.pred;
+  return clampX(p, NET - p.face * (BASE_DEPTH + (pr ? pr.shift : 0)));
+}
+// пока ИИ ещё «не увидел» удар, он тянется к предсказанной точке, а не к центру
+function readLean(p) {
+  const pr = p.ai.read && p.ai.read.pred;
+  return pr ? clampX(p, NET - p.face * lerp(BASE_DEPTH, pr.depth, pr.k)) : basePos(p);
 }
 
 /* ========= Шаг симуляции ========= */
@@ -1296,7 +1467,7 @@ function endGame() {
     noteName(profile.pid, profile.name, now);
     addRecs([{ id: rid(12), t: now, k: 'ai', p: profile.pid, lv: game.diff, win: game.over === 0, s: [game.score[0], game.score[1]] }]);
     cloudSync();
-    aiReact(game.over === 0 ? 2 : 3, 250);
+    aiReact(game.over === 0 ? 1 : 3, 250);
   } else if (game.mode === 'online' && Net.role === 'host' && Net.peerPid) {
     fx('match', { id: rid(12), t: now, k: 'net', a: profile.pid, b: Net.peerPid, w: game.over === 0 ? profile.pid : Net.peerPid, s: [game.score[0], game.score[1]] });
   }
@@ -1360,7 +1531,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyM') { cfg.sound = !cfg.sound; syncTune(); saveCfg(); return; }
   if (e.code === 'Enter' && game.state === 'over' && !$('over').hidden && document.activeElement.tagName !== 'BUTTON') { restart(); return; }
   if (e.repeat) return;
-  if ((game.mode === 'online' || game.mode === '1p') && $('menu').hidden && /^Digit[1-4]$/.test(e.code)) { sendReact(+e.code.slice(5) - 1); return; }
+  if ((game.mode === 'online' || game.mode === '1p') && $('menu').hidden && /^Digit[1-5]$/.test(e.code)) { sendReact(+e.code.slice(5) - 1); return; }
   keys.add(e.code);
   if (!inGame || game.paused) return;
   for (const p of P) {
@@ -1387,6 +1558,9 @@ for (const btn of document.querySelectorAll('.tbtn')) {
   btn.addEventListener('pointercancel', up);
   btn.addEventListener('lostpointercapture', up);
 }
+// Щипок на iOS (Safari не слушает user-scalable=no): двумя большими пальцами по кнопкам страница не увеличивается
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
 
 /* ========= Звук ========= */
 let actx = null, noiseBuf = null, master = null;
@@ -2434,7 +2608,7 @@ function addRecs(list) {
 }
 function standings() {
   const st = {};
-  const row = pid => st[pid] || (st[pid] = { pid, w: 0, n: 0, aw: 0, an: 0, lv: { easy: 0, medium: 0, hard: 0 } });
+  const row = pid => st[pid] || (st[pid] = { pid, w: 0, n: 0, aw: 0, an: 0, lv: { easy: 0, medium: 0, hard: 0, smart: 0 } });
   // место — по победам над друзьями, при равенстве по разнице побед и поражений, потом по победам над ИИ
   const C = canon;
   for (const r of store.recs) {
@@ -2479,7 +2653,7 @@ function renderStandings() {
     };
     cell(r.w, r.n);
     const ai = cell(r.aw, r.an);
-    ai.title = 'Победы над ИИ: лёгкий ' + r.lv.easy + ' · средний ' + r.lv.medium + ' · сложный ' + r.lv.hard;
+    ai.title = 'Победы над ИИ: лёгкий ' + r.lv.easy + ' · средний ' + r.lv.medium + ' · сложный ' + r.lv.hard + ' · умный ' + r.lv.smart;
     const sm = td(''); sm.textContent = r.best ? String(r.best) : '—';
     if (r.best) { const u = document.createElement('span'); u.className = 'of'; u.textContent = ' км/ч'; sm.appendChild(u); }
     body.appendChild(tr);
@@ -2506,7 +2680,7 @@ function renderHello() {
   const parts = [b ? 'смэш ' + b + ' км/ч' : '', ra ? 'розыгрыш ' + ra + ' уд.' : '', ft ? 'в ногу ' + ft : ''].filter(Boolean);
   $('meBest').textContent = STYLES[profile.style].label + ' · ' + (parts.length ? parts.join(' · ') : 'рекордов пока нет');
 }
-const DIFF_NOTE = { easy: 'Медленный и часто ошибается. Для разминки', medium: 'Держит розыгрыш, но ошибается под давлением', hard: 'Быстрая реакция, редкие ошибки, любит смэш' };
+const DIFF_NOTE = { easy: 'Медленный и часто ошибается. Для разминки', medium: 'Держит розыгрыш, но ошибается под давлением', hard: 'Быстрая реакция, редкие ошибки, любит смэш', smart: 'Как сложный, но запоминает твои удары и встаёт заранее' };
 function renderDiffNote() { $('diffNote').textContent = DIFF_NOTE[game.diff]; }
 function nameTaken(n) {
   n = cleanName(n).toLowerCase(); if (!n) return false;
@@ -2675,7 +2849,10 @@ async function cloudPush() {
   const pending = store.recs.filter(r => !store.cloud.has(r.id)).slice(-200);
   const res = await cloudReq('rpc/bdm_sync', { method: 'POST', body: authBody({ p_matches: pending.map(toRow),
     p_best: { smash: bestOf(profile.pid, store.best), rally: bestOf(profile.pid, store.rally), train: bestOf(profile.pid, store.train) } }) });
-  if (res && res.ok) pending.forEach(r => store.cloud.add(r.id)); // чужие матчи база пропускает — их запишут сами участники
+  // чужие матчи база пропускает — их запишут сами участники. Матч с умным база без миграции 20261118 тоже пропустит:
+  // такой оставляем в очереди и отправим снова
+  const skipped = new Set(res && Array.isArray(res.skipped) ? res.skipped : []);
+  if (res && res.ok) pending.forEach(r => { if (!(r.lv === 'smart' && skipped.has(r.id))) store.cloud.add(r.id); });
   else if (res && (res.err === 'pin' || res.err === 'noacc')) dropAuth();
 }
 async function cloudSync() {
@@ -2740,9 +2917,10 @@ function renderLobby(rows) {
 setInterval(lobbyRefresh, 5000);
 
 /* ========= Реакции в онлайне ========= */
-const REACTS = ['Смэш мне в ногу!', 'Ну ты даёшь', 'Реванш?', 'GG'];
+const REACTS = ['Смэш мне в ногу!', 'Ну ты даёшь', 'Ахах', 'GG', 'лол']; // номер уходит по сети: новые фразы — в конец, GG = 3
 function showReact(idx, i) { if (REACTS[i] && P[idx]) fx('react', idx, i); }
 // ИИ тоже умеет подкалывать: отвечает на реакции, радуется смэшу, жмёт руку в конце
+const aiLaugh = () => Math.random() < 0.5 ? 2 : 4;
 function aiReact(i, delay = 700, chance = 1) {
   if (game.mode !== '1p' || Math.random() > chance) return;
   const ai = P.find(p => p.ai); if (!ai) return;
@@ -2754,8 +2932,8 @@ function sendReact(i) {
   const now = performance.now(); if (now - Net.lastReact < 1200) return;
   if (game.mode === '1p') {
     Net.lastReact = now; showReact(localIdx(), i);
-    // ответ ИИ: на «GG» — «GG», на подкол — «Ну ты даёшь» или «Реванш?»
-    aiReact(i === 3 ? 3 : i === 2 ? 0 : Math.random() < 0.5 ? 1 : 2, 650, i === 3 ? 1 : 0.7);
+    // ответ ИИ: на «GG» — «GG», на «Смэш мне в ногу!» — «Ну ты даёшь», на остальное посмеивается
+    aiReact(i === 3 ? 3 : i === 0 ? 1 : aiLaugh(), 650, i === 3 ? 1 : 0.7);
     return;
   }
   if (game.mode !== 'online' || !Net.connected) return;
@@ -3114,6 +3292,7 @@ function frame(now) {
 // Для отладки и автотестов
 window.__bdm = {
   game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact,
+  READ, readReset() { readMem = null; for (const p of P) if (p.ai) p.ai.read = null; game.stats.read = null; },
   fastForward(sec) { const n = Math.round(sec / H); for (let i = 0; i < n && game.state !== 'over'; i++) step(H); game.hitstop = 0; },
 };
 

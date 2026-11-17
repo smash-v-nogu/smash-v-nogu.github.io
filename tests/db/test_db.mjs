@@ -1,6 +1,6 @@
 // Схема базы в памяти (PGlite = настоящий Postgres в WebAssembly): права anon, функции записи с ПИНом.
 // Запуск: cd tests/db && npm install && node test_db.mjs
-// MIGRATE=1 — сначала старая схема (коммит 409b209, до закрытия записи), потом миграция по шагам, как на рабочей базе.
+// MIGRATE=1 — сначала старая схема (коммит 409b209, до закрытия записи), потом миграции по шагам, как на рабочей базе.
 import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import { readFileSync } from 'node:fs';
@@ -52,7 +52,14 @@ if (process.env.MIGRATE) {
   await asAnon(`insert into public.players (pid, name) values ('oldclient1', 'Старый') on conflict (pid) do update set name = excluded.name`);
   await asAnon(`delete from public.rooms where code = 'ZZZZ'`);
   await db.exec(step2.slice(step2.indexOf('\n')));  // без хвоста строки-заголовка
-  console.log('миграция: шаг 1 не ломает старый клиент, шаг 2 применился');
+  // до миграции умного матч smart база пропускает (клиент отправит его снова), после — записывает
+  assert.equal((await login('Ранний', '7777', 'early00001')).ok, true);
+  let e = await sync('early00001', '7777', [ai('early00smart', 'early00001', { lv: 'smart' })]);
+  assert.equal(e.saved, 0); assert.deepEqual(e.skipped, ['early00smart']);
+  await db.exec(read('supabase/migrations/20261118_smart_level.sql'));
+  e = await sync('early00001', '7777', [ai('early00smart', 'early00001', { lv: 'smart' })]);
+  assert.equal(e.saved, 1, 'после миграции матч smart записался');
+  console.log('миграция: шаг 1 не ломает старый клиент, шаг 2 применился, уровень smart открыт');
 } else {
   await db.exec(read('supabase/schema.sql'));
 }
@@ -85,9 +92,12 @@ let r = await sync('kirill0001', '1234', [
   ai('BAD id', 'kirill0001'),                          // кривой id
   ai('future0001', 'kirill0001', { t: NOW + 3 * 86400000 }), // из будущего
   ai('badscore01', 'kirill0001', { s1: 99 }),          // счёт вне границ
+  ai('smart00001', 'kirill0001', { lv: 'smart' }),     // против умного
+  ai('badlevel01', 'kirill0001', { lv: 'genius' }),    // такого уровня нет
 ], { smash: 250, rally: 12, train: 40 });
-assert.equal(r.ok, true); assert.equal(r.saved, 2);
-assert.deepEqual([...r.skipped].sort(), ['BAD id', 'badscore01', 'foreign001', 'foreignnet', 'future0001']);
+assert.equal(r.ok, true); assert.equal(r.saved, 3);
+assert.deepEqual([...r.skipped].sort(), ['BAD id', 'badlevel01', 'badscore01', 'foreign001', 'foreignnet', 'future0001']);
+assert.equal((await one(`select lv from matches where id = 'smart00001'`)).lv, 'smart');
 assert.deepEqual(await one(`select name, best_smash, best_rally, best_train from players where pid = 'kirill0001'`),
   { name: 'Кирилл', best_smash: 250, best_rally: 12, best_train: 40 });
 r = await sync('kirill0001', '1234', [ai('mine000001', 'kirill0001')], { smash: 100, rally: 30, train: 'много' });
