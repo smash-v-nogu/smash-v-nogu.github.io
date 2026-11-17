@@ -295,11 +295,6 @@ body.touch #touch { display: block; }
 body.touch #hint { display: none; }
 body.touch .only-touch { display: block; }
 body.touch .only-keys { display: none; }
-body.ctl-mouse .ctl-keys, body:not(.ctl-mouse) .ctl-mouse { display: none; }
-body.ctl-mouse .keys .cap.shot { opacity: 0.32; }
-body.ctl-mouse:not(.menu-open) canvas#game { cursor: crosshair; }
-.ctl-seg { margin-bottom: 4px; }
-.tune-ctl { display: grid; gap: 8px; }
 .tpad { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); display: grid; gap: 10px; }
 .tpad.left { left: calc(14px + env(safe-area-inset-left)); grid-template-columns: 72px 72px; }
 .tpad.right { right: calc(14px + env(safe-area-inset-right)); grid-template-columns: 72px 72px; }
@@ -359,12 +354,6 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
   <label for="tReach"><span class="lab">Досягаемость ракеткой <output id="oReach"></output></span><input type="range" id="tReach" min="0.8" max="1.5" step="0.05"></label>
   <label for="tVt"><span class="lab">Предельная скорость волана <output id="oVt"></output></span><input type="range" id="tVt" min="4.5" max="9" step="0.1"></label>
   <p>У настоящего волана около 6,7 м/с: быстрее он падать не может, сопротивление воздуха растёт как квадрат скорости. Чем выше значение, тем дальше и «тяжелее» летит волан.</p>
-  <div class="tune-ctl only-keys"><span class="lab">Чем бить</span>
-    <div class="seg two ctl-seg" role="radiogroup" aria-label="Чем бить">
-      <button type="button" role="radio" data-ctl="keys" aria-checked="true">Клавиши</button>
-      <button type="button" role="radio" data-ctl="mouse" aria-checked="false">Мышь</button>
-    </div>
-  </div>
   <label class="check" for="tLand"><input type="checkbox" id="tLand"> Показывать, куда упадёт волан</label>
   <label class="check" for="tSound"><input type="checkbox" id="tSound"> Звук ударов</label>
   <button class="btn" id="tReset">Вернуть по умолчанию</button>
@@ -438,10 +427,6 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
       <aside class="sidepanel panel" aria-label="Управление и об игре">
         <div class="keys only-keys">
           <h2 class="panel-title">Управление</h2>
-          <div class="seg two ctl-seg" role="radiogroup" aria-label="Чем бить">
-            <button type="button" role="radio" data-ctl="keys" aria-checked="true">Клавиши</button>
-            <button type="button" role="radio" data-ctl="mouse" aria-checked="false">Мышь</button>
-          </div>
           <div class="caps">
             <div class="cap shot"><b>Q</b><small>клир</small></div>
             <div class="cap"><b>W</b><small>прыжок</small></div>
@@ -450,10 +435,8 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
             <div class="cap shot"><b>S</b><small>смэш</small></div>
             <div class="cap"><b>D</b><small>к сетке</small></div>
           </div>
-          <p class="ctl-keys">Ниже плеча те же кнопки дают свечу, сетку и драйв.</p>
-          <p class="ctl-mouse"><kbd>A</kbd> <kbd>D</kbd> — бег, <kbd>W</kbd> — прыжок. Удар мышью: зажми, потяни в сторону удара и отпусти в момент удара.</p>
-          <p class="ctl-mouse">Вверх — клир, вниз — смэш, коротко — дроп. Чем длиннее или резче рывок, тем сильнее. Отпустил чуть раньше — не страшно, удар сработает, когда волан долетит. Правая кнопка — прыжок.</p>
-          <p class="ctl-keys">При ударе стрелка — прицел: <kbd>D</kbd> — дальше, под заднюю линию, <kbd>A</kbd> — ближе к сетке и острее. Смэш с <kbd>A</kbd> летит в ноги. <kbd>Esc</kbd> пауза</p>
+          <p>Ниже плеча те же кнопки дают свечу, сетку и драйв.</p>
+          <p>При ударе стрелка — прицел: <kbd>D</kbd> — дальше, под заднюю линию, <kbd>A</kbd> — ближе к сетке и острее. Смэш с <kbd>A</kbd> летит в ноги. <kbd>Esc</kbd> пауза</p>
         </div>
         <div class="about">
           <button class="btn soft block" id="openRules">Правила</button>
@@ -577,7 +560,7 @@ const SHOULDER = 1.45, HIP = 0.95, JUMP_V = 3.6;
 const VIEW_L = -1.7, VIEW_R = COURT + 1.7, VIEW_TOP = 8.0, VIEW_BOTTOM = -1.05;
 const DZX = 0.055, DZY = 0.11; // косая проекция глубины: дальняя сторона корта выше и правее
 
-const DEFAULTS = { timeScale: 0.65, runSpeed: 5.2, reach: 1.1, vTerm: 6.7, showLanding: false, sound: true, control: 'keys' };
+const DEFAULTS = { timeScale: 0.65, runSpeed: 5.2, reach: 1.1, vTerm: 6.7, showLanding: false, sound: true };
 const cfg = { ...DEFAULTS };
 let K = G / (cfg.vTerm * cfg.vTerm);
 
@@ -733,7 +716,7 @@ function setupServe() {
   const srv = P[game.server], rcv = opponent(srv);
   srv.x = NET - srv.face * (SHORT + 1.25);
   rcv.x = NET - rcv.face * (SHORT + 1.6);
-  for (const p of P) { p.vx = 0; p.vy = 0; p.y = 0; p.onGround = true; p.recover = 0; p.press = 0; p.wasGround = true; p.swing = null; p.shotReq = null; p.shotBuf = null; p.noPerfect = false; p.jumpReq = 0; if (p.ai) { p.ai.plan = null; p.ai.served = false; p.ai.serveTimer = rnd(0.6, 1.1); p.ai.seen = -1; } }
+  for (const p of P) { p.vx = 0; p.vy = 0; p.y = 0; p.onGround = true; p.recover = 0; p.press = 0; p.wasGround = true; p.swing = null; p.shotReq = null; p.jumpReq = 0; if (p.ai) { p.ai.plan = null; p.ai.served = false; p.ai.serveTimer = rnd(0.6, 1.1); p.ai.seen = -1; } }
   Object.assign(sh, { held: true, inPlay: false, lastHitter: null, netHit: false, isServe: false, trail: [], predLand: null, vx: 0, vy: 0, ang: -Math.PI / 2 });
   game.mark = null;
   placeInHand(srv);
@@ -757,7 +740,7 @@ function hitQuality(p) {
   q -= p.press * 0.45;                                           // давление соперника
   // чистый удар: волан в лучшей точке, не за спиной, игрок не выдохся
   const off = Math.abs(d - ideal);
-  p.perfect = off < (0.14 + styleOf(p).window) * (1 - p.press * 0.5) && dx > -0.1 && Math.hypot(sh.vx, sh.vy) < 30 && p.sta > 0.2 && !p.noPerfect;
+  p.perfect = off < (0.14 + styleOf(p).window) * (1 - p.press * 0.5) && dx > -0.1 && Math.hypot(sh.vx, sh.vy) < 30 && p.sta > 0.2;
   return clamp(q, 0.12, 1);
 }
 function canHit(p) {
@@ -780,7 +763,7 @@ function doHit(p, key) {
   const short = weak * 2.6 + p.press * 0.9;
   // куда бить: держишь «назад» — глубже, «к сетке» — короче и острее
   // направление при ударе — это прицел: «от себя» (к задней линии соперника) — дальше, «к себе» — ближе к сетке
-  const place = p.ai ? (p.ai.place || 0) : p.drag ? p.drag.place : -Math.sign(p.axis * p.face);
+  const place = p.ai ? (p.ai.place || 0) : -Math.sign(p.axis * p.face);
   const boost = perfect ? 1.08 : 1;
   // ИИ иногда ошибается сам: чаще на рискованных ударах и при плохом контакте
   const roll = Math.random();
@@ -791,7 +774,7 @@ function doHit(p, key) {
   if (key === 'clear') {
     if (cy >= 1.85) {
       v = 'clear';
-      const depth = Math.min(6.5, (place < 0 ? 6.45 : 6.0) + (p.drag ? (p.drag.pw - 0.8) * 1.2 : 0)), angs = place > 0 ? [26, 22, 18, 30] : [36, 32, 28, 24];
+      const depth = place < 0 ? 6.45 : 6.0, angs = place > 0 ? [26, 22, 18, 30] : [36, 32, 28, 24];
       sol = solveFixed(cx, cy, dir, T(fail(0.1) ? 6.7 + rnd(0.15, 0.6) : depth - short + 1.3 * e()), angs, 85 * boost);
     } else {
       v = 'lift'; if (place > 0) usedPlace = 0;
@@ -812,7 +795,7 @@ function doHit(p, key) {
   } else {
     if (cy >= 1.9) {
       v = 'smash';
-      const sp = (air ? 64 : 54) * (0.72 + 0.28 * q) * (d ? d.power : 1) * st.smash * boost * (p.sta < 0.3 ? 0.85 : 1) * (p.drag ? 0.82 + 0.26 * p.drag.pw : 1);
+      const sp = (air ? 64 : 54) * (0.72 + 0.28 * q) * (d ? d.power : 1) * st.smash * boost * (p.sta < 0.3 ? 0.85 : 1);
       const tgt = place > 0 ? 2.4 : place < 0 ? 4.9 : 3.8;
       sol = solveAngle(cx, cy, dir, T(Math.max(1.2, tgt + weak * 1.5 + 1.5 * e())), sp, fail(0.16) ? -rnd(0.05, 0.25) : 0.04 - Math.pow(1 - q, 2) * 0.3 * Math.random() * skill);
     } else {
@@ -821,7 +804,6 @@ function doHit(p, key) {
     }
   }
   if (!sol) { v = cy >= 1.85 ? 'clear' : 'lift'; usedPlace = 0; sol = solveFixed(cx, cy, dir, T(5.5), [50, 40, 32], 85); }
-  p.drag = null; p.noPerfect = false;
   launch(p, sol, v, { perfect, place: usedPlace, air, q });
 }
 
@@ -1064,27 +1046,8 @@ function updatePlayer(p, h) {
     const key = p.shotReq; p.shotReq = null;
     if (game.state === 'serve') {
       if (game.server === p.idx) { p.swing = { key, t: 0.06, hit: true, over: false }; doServe(p, key); }
-    } else if (p.drag && game.state === 'rally' && !canHit(p)) {
-      // удар мышью отпущен чуть раньше: держим его «взведённым» и бьём, когда волан долетит до лучшей точки
-      p.shotBuf = { key, t: 0, lastD: Infinity };
     } else if (!p.swing || p.swing.t > 0.2) {
-      p.shotBuf = null;
       p.swing = { key, t: 0, hit: false, over: sh.y > p.y + 1.6, lowY: sh.y < 1.1 && !sh.held };
-    }
-  }
-  if (p.shotBuf) {
-    const b = p.shotBuf;
-    b.t += h;
-    let go = b.t > 0.5;
-    if (!go && canHit(p)) {
-      const dy = sh.y - shoulderFor(p, sh.y), d = Math.hypot(sh.x - p.x, dy), ideal = dy > 0 ? 0.92 : 0.8;
-      go = d <= ideal + 0.05 || d > b.lastD + 1e-4 || sh.y < 0.3;
-      b.lastD = d;
-    }
-    if (game.state !== 'rally') p.shotBuf = null;
-    else if (go) {
-      if (!p.swing || p.swing.t > 0.2) { p.swing = { key: b.key, t: 0, hit: false, over: sh.y > p.y + 1.6, lowY: sh.y < 1.1 }; p.noPerfect = b.t > 0.22; }
-      p.shotBuf = null;
     }
   }
   if (p.swing) {
@@ -1205,8 +1168,7 @@ function humanAxis(p) {
   if (b.right.some(k => keys.has(k)) || (touch && keys.has('TouchRight'))) a += 1;
   return mirror ? -a : a; // гость видит корт зеркально: «влево» на экране — это +x в мире
 }
-function humanAction(p, act, aim = null) {
-  if (act !== 'jump') p.drag = aim;
+function humanAction(p, act) {
   if (game.mode === 'online' && Net.role === 'guest') { guestAction(p, act); return; }
   if (act === 'jump') p.jumpReq = 0.12;
   else p.shotReq = act;
@@ -1644,7 +1606,6 @@ function render(dt) {
   drawPopups(ctx, dt);
   drawBubbles(ctx, dt);
   ctx.restore();
-  drawDragAim(ctx, dt);
 }
 
 
@@ -1669,7 +1630,7 @@ function trainStart() {
 }
 function trainSetup() {
   const t = game.train, bot = P[1];
-  for (const p of P) { p.vx = 0; p.vy = 0; p.y = 0; p.onGround = true; p.recover = 0; p.press = 0; p.wasGround = true; p.swing = null; p.shotReq = null; p.shotBuf = null; p.noPerfect = false; p.jumpReq = 0; }
+  for (const p of P) { p.vx = 0; p.vy = 0; p.y = 0; p.onGround = true; p.recover = 0; p.press = 0; p.wasGround = true; p.swing = null; p.shotReq = null; p.jumpReq = 0; }
   bot.x = NET + 2.4;
   let r = Math.random(), f = FEEDS[0];
   for (const x of FEEDS) { if (r < x.w) { f = x; break; } r -= x.w; }
@@ -1766,211 +1727,6 @@ function drawTrainZone(c) {
   c.restore();
 }
 
-/* ========= Удар мышью: зажми, потяни в сторону удара, отпусти в момент удара ========= */
-const drag = { on: false, id: null, x0: 0, y0: 0, x: 0, y: 0, pts: [], last: null };
-function myPlayer() {
-  if (game.mode === '1p' || game.mode === 'train') return P[0];
-  if (game.mode === 'online' && Net.connected) return P[Net.myIdx];
-  return null;
-}
-const DROP_R = 40, FULL_R = 170;
-// направление — по всему рывку, а при резком взмахе — по самому взмаху; сила — длина рывка или скорость взмаха
-function dragVec() {
-  let dx = drag.x - drag.x0, dy = drag.y - drag.y0, speed = 0;
-  const now = performance.now(), pts = drag.pts;
-  let k = pts.length - 1; while (k > 0 && now - pts[k - 1][0] < 90) k--;
-  if (pts.length > 1 && k < pts.length - 1) {
-    const a = pts[k], b = pts[pts.length - 1], rx = b[1] - a[1], ry = b[2] - a[2], dt = Math.max(16, b[0] - a[0]);
-    speed = Math.hypot(rx, ry) / dt * 1000;
-    if (speed > 900 && Math.hypot(rx, ry) > 14) { dx = rx; dy = ry; }
-  }
-  return { dx, dy, speed, len: Math.hypot(drag.x - drag.x0, drag.y - drag.y0) };
-}
-// свой игрок всегда слева, поэтому «вперёд» — вправо по экрану
-function dragParams(dx, dy, speed = 0, len = Math.hypot(dx, dy)) {
-  const pw = Math.max(clamp((len - DROP_R) / (FULL_R - DROP_R), 0, 1) * 0.78 + (len > DROP_R ? 0.22 : len / DROP_R * 0.22), clamp((speed - 500) / 2500, 0, 1));
-  return { a: Math.atan2(-dy, Math.abs(dx) + 0.001) * 180 / Math.PI, pw };
-}
-function shotFrom(a, pw) {
-  if (pw < 0.22) return { key: 'drop', place: pw < 0.1 ? 1 : 0, pw, a, zone: 'drop' };
-  if (a > 22) return { key: 'clear', place: a < 48 ? 1 : pw > 0.7 ? -1 : 0, pw, a, zone: 'clear' };
-  if (a < -12) return { key: 'smash', place: a < -50 ? 1 : pw > 0.75 ? -1 : 0, pw, a, zone: 'smash' };
-  return { key: 'smash', place: pw > 0.7 ? -1 : 1, pw, a, zone: 'flat' };
-}
-function dragShot(dx, dy, speed = 0, len = Math.hypot(dx, dy)) { const q = dragParams(dx, dy, speed, len); return shotFrom(q.a, q.pw); }
-// прилипание: на границе сектора удар не прыгает туда-сюда, пока мышь не уйдёт в соседний сектор заметно
-function stickyShot() {
-  const v = dragVec(), { a, pw } = dragParams(v.dx, v.dy, v.speed, v.len), raw = shotFrom(a, pw), prev = drag.cur;
-  let out = raw;
-  if (prev && (prev.zone !== raw.zone || prev.place !== raw.place)) {
-    search: for (const da of [0, -9, 9]) for (const dp of [0, -0.05, 0.05]) {
-      const alt = shotFrom(a + da, clamp(pw + dp, 0, 1));
-      if (alt.zone === prev.zone && alt.place === prev.place) { out = { ...alt, a, pw }; break search; }
-    }
-  }
-  if (prev && prev.zone !== out.zone) sndSector(out.zone);
-  drag.cur = out;
-  chargeUpdate(out.pw);
-  return out;
-}
-/* звук: тон заряда растёт с силой, щелчок при смене сектора, свист при ударе */
-const charge = { o: null, g: null, f: null };
-function chargeStart() {
-  if (!canSound() || charge.o) return;
-  try {
-    const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
-    o.type = 'sawtooth'; o.frequency.value = 150; f.type = 'lowpass'; f.frequency.value = 700; g.gain.value = 0.0001;
-    o.connect(f).connect(g).connect(master); o.start();
-    g.gain.setTargetAtTime(0.02, actx.currentTime, 0.04);
-    Object.assign(charge, { o, g, f });
-  } catch (_) { charge.o = null; }
-}
-function chargeUpdate(pw) {
-  if (!charge.o) return;
-  const t = actx.currentTime;
-  charge.o.frequency.setTargetAtTime(150 + 330 * pw, t, 0.04);
-  charge.f.frequency.setTargetAtTime(600 + 2000 * pw, t, 0.04);
-  charge.g.gain.setTargetAtTime(0.018 + 0.04 * pw, t, 0.05);
-}
-function chargeStop() {
-  if (!charge.o) return;
-  try { const t = actx.currentTime; charge.g.gain.setTargetAtTime(0.0001, t, 0.015); charge.o.stop(t + 0.12); } catch (_) {}
-  charge.o = null;
-}
-function sndSector(zone) { if (canSound()) tone(zone === 'clear' ? 1500 : zone === 'drop' ? 950 : zone === 'flat' ? 1250 : 1100, 1000, 0.04, 0.03, 'square'); }
-function sndWhoosh(pw) { if (canSound()) noise(1100 + 2200 * pw, 0.6, 0.06 + 0.2 * pw, 0.08 + 0.1 * pw); }
-// где примерно встретим волан: высота контакта решает, смэш это или драйв, клир или свеча
-function predictContact(me) {
-  if (game.state === 'serve') return { x: me.x, y: 1.0 };
-  if (!sh.inPlay) return null;
-  if (sh.lastHitter === me) return { x: me.x, y: 2.2 };
-  const pred = simulate(sh.x, sh.y, sh.vx, sh.vy, true);
-  let best = null, bd = Infinity;
-  for (const pt of pred.pts) { if ((pt.x - NET) * me.face > 0.04) continue; const dd = Math.hypot(pt.x - me.x, (pt.y - shoulderFor(me, pt.y)) * 0.6); if (dd < bd) { bd = dd; best = pt; } }
-  return best || { x: me.x, y: sh.y };
-}
-function aimInfo(s, me) {
-  const c = predictContact(me) || { x: me.x, y: 2 };
-  const high = c.y >= 1.85, nearNet = Math.abs(c.x - NET) < 2.3;
-  let label, dist;
-  if (game.state === 'serve') {
-    label = s.key === 'drop' ? 'Короткая подача' : s.key === 'smash' ? 'Флик' : 'Высокая подача';
-    dist = s.key === 'drop' ? SHORT + 0.32 : s.key === 'smash' ? 6.1 : 6.35;
-  } else if (s.key === 'drop') {
-    label = high ? (s.place > 0 ? 'Острый дроп' : 'Дроп') : nearNet ? (s.place > 0 ? 'Тугая сетка' : 'Сетка') : 'Подставка';
-    dist = high ? (s.place > 0 ? 0.85 : s.place < 0 ? 2.2 : 1.45) : nearNet ? (s.place > 0 ? 0.35 : 0.6) : 1.4;
-  } else if (s.key === 'clear') {
-    label = high ? (s.place > 0 ? 'Атакующий клир' : s.place < 0 ? 'Глубокий клир' : 'Клир') : 'Свеча';
-    dist = high ? Math.min(6.5, (s.place < 0 ? 6.45 : 6.0) + (s.pw - 0.8) * 1.2) : (s.place < 0 ? 6.3 : 5.9);
-  } else {
-    label = high ? (s.place > 0 ? 'Смэш в ноги' : s.place < 0 ? 'Смэш на заднюю' : 'Смэш') : 'Драйв';
-    dist = high ? (s.place > 0 ? 2.4 : s.place < 0 ? 4.9 : 3.8) : (s.place > 0 ? 3.0 : 4.6);
-  }
-  return { label, dist, c };
-}
-const AIM_COL = { smash: '#ff6a3d', clear: '#3cc3e6', drop: '#ffd78a' };
-// компас вокруг точки нажатия: какие удары в какой стороне
-function drawCompass(c, cx, cy, s, alpha) {
-  const r1 = DROP_R, r2 = DROP_R + 34, deg = Math.PI / 180;
-  const sectors = [['clear', -158, -22], ['smash', 12, 168], ['flat', -22, 12], ['flat', 168, 202]];
-  c.save(); c.globalAlpha = alpha;
-  for (const [k, a0, a1] of sectors) {
-    const on = s.zone === k;
-    c.beginPath(); c.arc(cx, cy, r2, a0 * deg, a1 * deg); c.arc(cx, cy, r1, a1 * deg, a0 * deg, true); c.closePath();
-    c.fillStyle = k === 'flat' ? 'rgba(255,140,90,' + (on ? 0.42 : 0.1) + ')' : (k === 'clear' ? 'rgba(60,195,230,' : 'rgba(255,106,61,') + (on ? 0.45 : 0.12) + ')';
-    c.fill();
-  }
-  c.beginPath(); c.arc(cx, cy, r1 - 2, 0, Math.PI * 2);
-  c.fillStyle = 'rgba(255,215,138,' + (s.zone === 'drop' ? 0.32 : 0.08) + ')'; c.fill();
-  c.font = `600 11px ${FB}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = 'rgba(232,239,233,0.85)';
-  c.fillText('клир', cx, cy - r2 + 12); c.fillText('смэш', cx, cy + r2 - 12); c.fillText('драйв', cx + r2 - 16, cy - 1); c.fillText('дроп', cx, cy);
-  c.restore();
-}
-function drawAimShot(c, me, s, info, alpha) {
-  const col = AIM_COL[s.key];
-  c.save(); c.globalAlpha = alpha;
-  // куда полетит: дуга и метка на полу соперника
-  const tx = NET + me.face * info.dist, sx = X(me.x), sy = Y(me.y + 1.5), ex = X(tx), ey = Y(0);
-  const apex = game.state === 'serve' ? (s.key === 'drop' ? 2.3 : 4.6) : s.key === 'clear' ? (s.place > 0 ? 4.2 : 5.6) : s.key === 'drop' ? 2.6 : 1.4;
-  const cxp = (sx + ex) / 2, cyp = s.key === 'smash' && game.state !== 'serve' ? (sy + ey) / 2 : Y(apex) - (Y(0) - Y(apex)) * 0.25;
-  c.setLineDash([6, 7]); c.lineWidth = 2; c.strokeStyle = col;
-  c.beginPath(); c.moveTo(sx, sy); c.quadraticCurveTo(cxp, cyp, ex, ey); c.stroke(); c.setLineDash([]);
-  c.lineWidth = 2.5; c.beginPath(); c.ellipse(ex, ey, sc * 0.32, sc * 0.09, 0, 0, Math.PI * 2); c.stroke();
-  c.globalAlpha = alpha * 0.25; c.fillStyle = col; c.fill(); c.globalAlpha = alpha;
-  // название удара и сила над игроком
-  const fs = Math.max(12, sc * 0.26), lx = clamp(sx, 80, W - 80), ly = Y(me.y + 2.55);
-  c.font = `700 ${fs}px ${FB}`; c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillStyle = col;
-  c.fillText(info.label, lx, ly);
-  const bw = Math.max(76, sc * 1.6), bh = 5;
-  c.fillStyle = 'rgba(232,239,233,0.18)'; roundRect(c, lx - bw / 2, ly + 5, bw, bh, 3); c.fill();
-  c.fillStyle = col; roundRect(c, lx - bw / 2, ly + 5, Math.max(bh, bw * s.pw), bh, 3); c.fill();
-  c.restore();
-}
-function drawDragAim(c, dt) {
-  const me = myPlayer();
-  if (!me || cfg.control !== 'mouse') { drag.last = null; return; }
-  if (drag.on) {
-    const s = stickyShot(), info = aimInfo(s, me);
-    drawCompass(c, drag.x0, drag.y0, s, 0.9);
-    c.save(); c.strokeStyle = 'rgba(232,239,233,0.55)'; c.lineWidth = 1.5;
-    c.beginPath(); c.moveTo(drag.x0, drag.y0); c.lineTo(drag.x, drag.y); c.stroke();
-    c.fillStyle = AIM_COL[s.key]; c.beginPath(); c.arc(drag.x, drag.y, 5, 0, Math.PI * 2); c.fill(); c.restore();
-    drawAimShot(c, me, s, info, 1);
-  } else if (drag.last) {
-    // после отпускания прицел плавно гаснет, а пока удар «взведён» — держится
-    const L = drag.last; L.t += dt;
-    const armed = me.shotBuf && me.shotBuf.key === L.s.key;
-    const a = armed ? 0.75 : Math.max(0, 1 - L.t / 0.35);
-    if (a <= 0) { drag.last = null; return; }
-    drawAimShot(c, me, L.s, L.info, a);
-    if (armed) {
-      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 70);
-      c.save(); c.strokeStyle = AIM_COL[L.s.key]; c.globalAlpha = 0.5 + 0.4 * pulse; c.lineWidth = 2.5;
-      c.beginPath(); c.arc(X(me.x + me.face * 0.35), Y(me.y + 1.9), sc * (0.28 + 0.06 * pulse), 0, Math.PI * 2); c.stroke(); c.restore();
-    }
-  }
-}
-function mouseActive(e) {
-  if (cfg.control !== 'mouse' || e.pointerType === 'touch') return false;
-  if (!$('menu').hidden || game.paused || game.state === 'over' || !$('rules').hidden || !$('nameDlg').hidden) return false;
-  if (e.target && e.target.closest && e.target.closest('button, input, a, label, select, textarea, #tune, .reacts')) return false;
-  return !!myPlayer();
-}
-window.addEventListener('pointerdown', e => {
-  if (!mouseActive(e)) return;
-  const me = myPlayer();
-  if (e.button === 2) { humanAction(me, 'jump'); e.preventDefault(); return; }  // правая кнопка — прыжок
-  if (e.button !== 0) return;
-  unlockAudio();
-  drag.on = true; drag.id = e.pointerId; drag.x0 = drag.x = e.clientX; drag.y0 = drag.y = e.clientY;
-  drag.pts = [[performance.now(), e.clientX, e.clientY]]; drag.last = null; drag.cur = null;
-  chargeStart();
-  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
-  e.preventDefault();
-});
-window.addEventListener('pointermove', e => {
-  if (!drag.on || e.pointerId !== drag.id) return;
-  const list = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-  for (const ev of (list.length ? list : [e])) drag.pts.push([performance.now(), ev.clientX, ev.clientY]);
-  if (drag.pts.length > 40) drag.pts.splice(0, drag.pts.length - 40);
-  drag.x = e.clientX; drag.y = e.clientY;
-});
-function endDrag(e, fire) {
-  if (!drag.on || e.pointerId !== drag.id) return;
-  drag.x = e.clientX; drag.y = e.clientY; drag.pts.push([performance.now(), e.clientX, e.clientY]);
-  const s = stickyShot();
-  drag.on = false; chargeStop();
-  const me = myPlayer();
-  if (!fire || !me || game.paused || game.state === 'over') return;
-  sndWhoosh(s.pw);
-  drag.last = { s, info: aimInfo(s, me), t: 0 };
-  humanAction(me, s.key, { place: s.place, pw: s.pw });
-}
-window.addEventListener('pointerup', e => endDrag(e, true));
-window.addEventListener('pointercancel', e => endDrag(e, false));
-window.addEventListener('blur', () => { drag.on = false; chargeStop(); });
-canvas.addEventListener('contextmenu', e => { if (game.mode !== 'demo' && $('menu').hidden) e.preventDefault(); });
-window.addEventListener('contextmenu', e => { if (cfg.control === 'mouse' && game.mode !== 'demo' && $('menu').hidden && e.target === canvas) e.preventDefault(); });
 
 /* ========= Интерфейс ========= */
 function pointStatus() {
@@ -2013,10 +1769,9 @@ function updateHint() {
   const humanServing = game.state === 'serve' && (game.mode === 'online' ? game.server === Net.myIdx : !P[game.server].ai);
   if (humanServing) {
     const b = game.mode === '2p' && game.server === 1 ? ['O', 'U', 'K'] : ['Q', 'E', 'S'];
-    el.innerHTML = cfg.control === 'mouse' && game.mode !== '2p' ? '<span class="serve">Подача мышью: потяни вверх — высокая, коротко — короткая, вниз — флик</span>'
-      : `<span class="serve">Подача: <kbd>${b[0]}</kbd> высокая · <kbd>${b[1]}</kbd> короткая · <kbd>${b[2]}</kbd> флик</span>`;
+    el.innerHTML = `<span class="serve">Подача: <kbd>${b[0]}</kbd> высокая · <kbd>${b[1]}</kbd> короткая · <kbd>${b[2]}</kbd> флик</span>`;
   } else if (game.mode === '1p' || game.mode === 'online' || game.mode === 'train') {
-    el.innerHTML = (cfg.control === 'mouse' ? '<span><kbd>A</kbd> <kbd>D</kbd> бег · <kbd>W</kbd> или правая кнопка — прыжок · удар: зажми левую, потяни, отпусти</span><span><kbd>Esc</kbd> пауза</span>' : '<span><kbd>A</kbd> <kbd>D</kbd> бег · <kbd>W</kbd> прыжок · <kbd>Q</kbd> клир · <kbd>E</kbd> дроп · <kbd>S</kbd> смэш</span><span><kbd>Esc</kbd> пауза</span>') + (game.mode === 'online' ? '<span class="ping" id="ping"></span>' : '');
+    el.innerHTML = '<span><kbd>A</kbd> <kbd>D</kbd> бег · <kbd>W</kbd> прыжок · <kbd>Q</kbd> клир · <kbd>E</kbd> дроп · <kbd>S</kbd> смэш</span><span><kbd>Esc</kbd> пауза</span>' + (game.mode === 'online' ? '<span class="ping" id="ping"></span>' : '');
   } else {
     el.innerHTML = '<span>Слева: <kbd>Q</kbd> <kbd>E</kbd> <kbd>S</kbd> удары</span><span>Справа: <kbd>O</kbd> <kbd>U</kbd> <kbd>K</kbd> удары</span><span><kbd>Esc</kbd> пауза</span>';
   }
@@ -2082,11 +1837,7 @@ function syncTune() {
   $('tReach').value = cfg.reach; $('oReach').textContent = cfg.reach.toFixed(2).replace('.', ',') + ' м';
   $('tVt').value = cfg.vTerm; $('oVt').textContent = cfg.vTerm.toFixed(1).replace('.', ',') + ' м/с';
   $('tLand').checked = cfg.showLanding; $('tSound').checked = cfg.sound;
-  if (cfg.control !== 'mouse') cfg.control = 'keys';
-  document.body.classList.toggle('ctl-mouse', cfg.control === 'mouse');
-  for (const b of document.querySelectorAll('.ctl-seg button')) b.setAttribute('aria-checked', String(b.dataset.ctl === cfg.control));
 }
-for (const b of document.querySelectorAll('.ctl-seg button')) b.addEventListener('click', () => { cfg.control = b.dataset.ctl; syncTune(); saveCfg(); updateHint(); });
 const sliders = { tTime: 'timeScale', tRun: 'runSpeed', tReach: 'reach', tVt: 'vTerm' };
 for (const id in sliders) $(id).addEventListener('input', e => { cfg[sliders[id]] = parseFloat(e.target.value); syncTune(); saveCfg(); });
 $('tLand').addEventListener('change', e => { cfg.showLanding = e.target.checked; saveCfg(); });
@@ -2110,7 +1861,7 @@ const Net = {
   reset() {
     clearInterval(this.syncIv);
     Object.assign(this, { peerPid: null, peerName: '', peerStyle: null, syncIv: null, role: null, myIdx: 0, transport: null, connected: false, code: '', outN: 0, lastInN: 0, lastSnapN: 0,
-      evSeq: 0, events: [], eventAck: 0, lastEv: 0, shotSeq: 0, shotKey: null, shotPlace: 9, shotPow: 0, lastShotSeq: 0, posEpoch: -1,
+      evSeq: 0, events: [], eventAck: 0, lastEv: 0, shotSeq: 0, shotKey: null, lastShotSeq: 0, posEpoch: -1,
       againSeq: 0, lastAg: 0, lobbyBeat: null, reactSeq: 0, reactI: 0, lastRq: 0, lastReact: 0, rtt: 0, remoteRtt: 0.1, lastTs: 0, lastRecv: 0, lastSend: 0, lastPing: 0, joinTimer: null, savedCfg: null, retries: 0 });
   },
   lagGame() { return clamp(this.remoteRtt || 0.1, 0.02, 0.3) * cfg.timeScale; },
@@ -2296,7 +2047,7 @@ function onGuestInput(m) {
   }
   if (STYLES[m.sy]) { Net.peerStyle = m.sy; p.style = m.sy; }
   p.axis = clamp(+m.ax || 0, -1, 1);
-  if (m.sq > Net.lastShotSeq) { Net.lastShotSeq = m.sq; if (['clear', 'drop', 'smash'].includes(m.sk)) { p.shotReq = m.sk; p.drag = [-1, 0, 1].includes(m.sp) ? { place: m.sp, pw: clamp(+m.sw || 0, 0, 1) } : null; } }
+  if (m.sq > Net.lastShotSeq) { Net.lastShotSeq = m.sq; if (['clear', 'drop', 'smash'].includes(m.sk)) p.shotReq = m.sk; }
   if (m.ag > Net.lastAg) { Net.lastAg = m.ag; if (game.state === 'over') restart(); }
   if (m.rq > Net.lastRq) { Net.lastRq = m.rq; if (m.ri >= 0 && m.ri < REACTS.length) fx('react', 1, m.ri | 0); }
   if (Number.isFinite(m.rtt) && m.rtt > 0) Net.remoteRtt = clamp(m.rtt, 0, 1);
@@ -2307,13 +2058,13 @@ function onGuestInput(m) {
 function sendInput() {
   const me = P[Net.myIdx];
   Net.send({ t: 'in', n: ++Net.outN, x: r3(me.x), y: r3(me.y), vx: r2(me.vx), vy: r2(me.vy), g: me.onGround ? 1 : 0,
-    ep: Net.posEpoch, sq: Net.shotSeq, sk: Net.shotKey, sp: Net.shotPlace, sw: Net.shotPow, ag: Net.againSeq, rq: Net.reactSeq, ri: Net.reactI, ea: Net.lastEv, ts: performance.now(), rtt: r3(Net.rtt), id: profile.pid, nm: profile.name, sy: profile.style, ax: me.axis });
+    ep: Net.posEpoch, sq: Net.shotSeq, sk: Net.shotKey, ag: Net.againSeq, rq: Net.reactSeq, ri: Net.reactI, ea: Net.lastEv, ts: performance.now(), rtt: r3(Net.rtt), id: profile.pid, nm: profile.name, sy: profile.style, ax: me.axis });
 }
 function guestAction(p, act) {
   if (act === 'jump') { p.jumpReq = 0.12; return; }
-  Net.shotSeq++; Net.shotKey = act; Net.shotPlace = p.drag ? p.drag.place : 9; Net.shotPow = p.drag ? Math.round(p.drag.pw * 100) / 100 : 0;
+  Net.shotSeq++; Net.shotKey = act;
   if (game.state === 'serve') { if (game.server === p.idx) p.swing = { key: act, t: 0.06, hit: true, over: false }; }
-  else if ((!p.drag || canHit(p)) && (!p.swing || p.swing.t > 0.2)) p.swing = { key: act, t: 0, hit: false, over: sh.y > p.y + 1.6, lowY: sh.y < 1.1 && !sh.held };
+  else if (!p.swing || p.swing.t > 0.2) p.swing = { key: act, t: 0, hit: false, over: sh.y > p.y + 1.6, lowY: sh.y < 1.1 && !sh.held };
   Net.lastSend = performance.now(); sendInput();
 }
 function onSnapshot(m) {
@@ -3141,7 +2892,7 @@ function frame(now) {
 
 // Для отладки и автотестов
 window.__bdm = {
-  game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact, dragShot, drag, syncTune, stickyShot,
+  game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact,
   fastForward(sec) { const n = Math.round(sec / H); for (let i = 0; i < n && game.state !== 'over'; i++) step(H); game.hitstop = 0; },
 };
 
