@@ -2084,17 +2084,31 @@ function peerTransport() {
     closed: false,
     wire(conn, cb) {
       this.conn = conn;
-      conn.on('open', () => cb.onConnect());
-      conn.on('data', d => cb.onData(d));
-      conn.on('close', () => { if (!this.closed) cb.onClose(); });
-      conn.on('error', () => { if (!this.closed) cb.onClose(); });
+      let opened = false;
+      conn.on('open', () => { if (this.conn !== conn) return; opened = true; cb.onConnect(); });
+      conn.on('data', d => { if (this.conn === conn) cb.onData(d); });
+      // вытесненное соединение молчит; у хоста гость, который так и не дошёл, комнату не закрывает — ждём дальше
+      const gone = () => { if (this.closed || this.conn !== conn) return; if (this.isHost && !opened) { this.conn = null; return; } cb.onClose(); };
+      conn.on('close', gone);
+      conn.on('error', gone);
     },
     host(code, cb) {
       const peer = new window.Peer(PEER_PREFIX + code, { debug: 1 });
       this.peer = peer;
       peer.on('open', () => cb.onOpen(code));
+      this.isHost = true;
       peer.on('connection', conn => {
-        if (this.conn) { conn.on('open', () => { try { conn.send({ t: 'busy' }); } catch (_) {} setTimeout(() => conn.close(), 400); }); return; }
+        // Место держит только живой соперник. Уступает новому гостю, если прежнее соединение не открылось,
+        // замолчало (больше 3 с без данных: вкладку закрыли, телефон уснул) или это тот же игрок
+        // с другой вкладки (ссылка открылась в Telegram, потом её открыли в Safari).
+        const cur = this.conn, pid = conn.metadata && PID.test(conn.metadata.pid) ? conn.metadata.pid : null;
+        const free = !cur || !cur.open || performance.now() - Net.lastRecv > 3000 || (pid && pid === this.guestPid);
+        if (!free) { conn.on('open', () => { try { conn.send({ t: 'busy' }); } catch (_) {} setTimeout(() => conn.close(), 400); }); return; }
+        if (cur) { // новичку — свежие 10 с до «связь потеряна» и счётчики с нуля: у новой вкладки своя нумерация ударов и реакций
+          this.conn = null; try { cur.close(); } catch (_) {}
+          Object.assign(Net, { lastRecv: performance.now(), lastInN: 0, lastShotSeq: 0, lastAg: 0, lastRq: 0, lastTs: 0, eventAck: 0 });
+        }
+        this.guestPid = pid;
         this.wire(conn, cb);
       });
       peer.on('error', err => { if (!this.closed) cb.onError(err && err.type || 'error'); });
@@ -2103,7 +2117,7 @@ function peerTransport() {
     join(code, cb) {
       const peer = new window.Peer({ debug: 1 });
       this.peer = peer;
-      peer.on('open', () => this.wire(peer.connect(PEER_PREFIX + code, { reliable: false, serialization: 'json' }), cb));
+      peer.on('open', () => this.wire(peer.connect(PEER_PREFIX + code, { reliable: false, serialization: 'json', metadata: { pid: profile.pid } }), cb));
       peer.on('error', err => { if (!this.closed) cb.onError(err && err.type || 'error'); });
     },
     send(m) { try { if (this.conn && this.conn.open) this.conn.send(m); } catch (_) {} },
