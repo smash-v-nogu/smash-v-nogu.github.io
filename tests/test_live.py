@@ -2,7 +2,10 @@
 1. Настоящая Supabase, но только чтение: любые не-GET запросы к ней обрываются. Общая таблица подтянулась, ошибок нет.
 2. Телефон вертикально: меню без горизонтальной прокрутки.
 3. Онлайн через настоящий PeerJS между двумя браузерами. Supabase здесь подменён, в базу ничего не пишется.
-4. Матч против ИИ до конца (за игрока доигрывает ИИ через fastForward): экран итога, запись матча уходит в облако (подменённое).
+   Хост объявляет комнату в лобби и убирает её через bdm_room.
+4. Матч против ИИ до конца (за игрока доигрывает ИИ через fastForward): экран итога, матч уходит через bdm_sync (подменённый).
+5. Настоящая база закрыта на запись. Пробы безвредны: строки заведомо кривые, фильтры ни с чем не совпадают,
+   id в функциях выдуманный, так что даже открытая база ничего бы не записала.
 LIVE_URL — другой адрес сайта. Скриншоты кладутся в SHOTS, если задан."""
 import json, os, time
 from _util import sync_playwright, launch, sign_up
@@ -10,7 +13,7 @@ from _util import sync_playwright, launch, sign_up
 LIVE = os.environ.get('LIVE_URL', 'https://smash-v-nogu.github.io/')
 LIVE += ('&' if '?' in LIVE else '?') + 'v=' + str(int(time.time()))  # мимо кэша Pages
 SHOTS = os.environ.get('SHOTS')
-errs, cons, blocked, got, posted = [], [], [], set(), {'matches': [], 'players': []}
+errs, cons, blocked, got, posted, rooms = [], [], [], set(), {'matches': [], 'players': []}, []
 
 
 def shot(page, name):
@@ -30,11 +33,19 @@ def fake(route):
     if '/rpc/bdm_login' in u:
         b = json.loads(req.post_data)
         return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'pid': b['p_pid'], 'name': b['p_name'], 'mode': 'new'}))
+    if '/rpc/bdm_sync' in u:
+        b = json.loads(req.post_data)
+        for m in b.get('p_matches') or []:
+            if not any(x['id'] == m['id'] for x in posted['matches']): posted['matches'].append(m)
+        posted['players'].append(b.get('p_best'))
+        return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'saved': 0, 'skipped': []}))
+    if '/rpc/bdm_room' in u:
+        b = json.loads(req.post_data); rooms.append((b['p_code'], b['p_status']))
+        return route.fulfill(status=200, content_type='application/json', body='{"ok":true}')
     if req.method == 'GET':
         return route.fulfill(status=200, content_type='application/json', body='[]')
-    for k in posted:
-        if '/' + k in u and req.post_data: posted[k].extend(json.loads(req.post_data))
-    return route.fulfill(status=201, body='')
+    blocked.append('прямая запись ' + req.method + ' ' + u.split('/rest/v1/')[-1][:60])
+    return route.fulfill(status=401, body='')
 
 
 def watch(page, tag):
@@ -77,6 +88,8 @@ with sync_playwright() as pw:
     G.fill('#netCode', code); G.click('#netJoin'); t0 = time.time()
     H.wait_for_function("() => __bdm.Net.connected", timeout=20000); G.wait_for_function("() => __bdm.Net.connected", timeout=20000)
     print(f'PeerJS: комната {code}, соединились за {time.time() - t0:.1f} с')
+    H.wait_for_timeout(300)
+    assert (code, 'open') in rooms and (code, 'gone') in rooms, f'хост объявил и убрал комнату через bdm_room: {rooms}'
     assert G.evaluate("() => __bdm.game.mode") == 'online' and G.evaluate("() => __bdm.Net.myIdx") == 1
     H.wait_for_timeout(600)
     G.keyboard.press('KeyS'); H.wait_for_function("() => __bdm.Net.lastShotSeq >= 1", timeout=5000)
@@ -103,6 +116,37 @@ with sync_playwright() as pw:
     assert len(posted['matches']) == 1 and posted['matches'][0]['k'] == 'ai' and posted['matches'][0]['lv'] == 'hard'
     shot(A, 'live_1p_over')
     br.close()
+
+# 5. Настоящая база закрыта на запись
+SB = 'https://ktpeclypxevbfwtvuwbi.supabase.co/rest/v1/'
+KEY = 'sb_publishable_zydu8BCg0hb0x92Vh0e1uQ_oMIMObKn'
+
+
+def sb(method, path, body=None):
+    with sync_playwright() as pw:
+        api = pw.request.new_context(extra_http_headers={'apikey': KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'})
+        r = api.fetch(SB + path, method=method, data=None if body is None else json.dumps(body), timeout=15000)
+        res = r.status, r.text(); api.dispose(); return res
+
+
+probes = {
+    'добавить матч': ('POST', 'matches', {'id': 'x'}),                          # кривой id: открытая база тоже не запишет
+    'изменить игрока': ('PATCH', 'players?pid=eq.0', {'name': 'x'}),            # pid '0' не бывает
+    'добавить игрока': ('POST', 'players', {'pid': 'x', 'name': 'x'}),
+    'добавить комнату': ('POST', 'rooms', {'code': 'x', 'host_pid': 'x', 'host_name': 'x'}),
+    'удалить комнату': ('DELETE', 'rooms?code=eq.0', None),
+    'изменить комнату': ('PATCH', 'rooms?code=eq.0', {'host_name': 'x'}),
+}
+for name, (m, path, body) in probes.items():
+    st, txt = sb(m, path, body)
+    assert st in (401, 403) and '42501' in txt, f'настоящая база: «{name}» не закрыто ({st} {txt[:120]})'
+for fn, body in (('bdm_sync', {'p_pid': 'zzprobe01', 'p_pin': '0000', 'p_matches': []}),
+                 ('bdm_room', {'p_pid': 'zzprobe01', 'p_pin': '0000', 'p_code': 'ZZZZ', 'p_status': 'gone'})):
+    st, txt = sb('POST', 'rpc/' + fn, body)
+    assert st == 200 and json.loads(txt) == {'ok': False, 'err': 'noacc'}, f'настоящая база: {fn} отвечает {st} {txt[:120]}'
+st, _ = sb('POST', 'rpc/bdm_auth', {'p_pid': 'zzprobe01', 'p_pin': '0000'})
+assert st in (401, 403, 404), f'bdm_auth доступна снаружи ({st})'
+print('настоящая база: прямая запись закрыта, функции записи на месте')
 
 assert not blocked, f'страница пыталась писать в настоящую базу: {blocked}'
 assert not errs, errs

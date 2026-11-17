@@ -1,0 +1,7 @@
+{
+  "name": "smash-v-nogu-db-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node test_db.mjs && MIGRATE=1 node test_db.mjs" },
+  "dependencies": { "@electric-sql/pglite": "0.5.16" }
+}

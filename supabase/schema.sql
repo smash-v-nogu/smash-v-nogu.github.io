@@ -1,6 +1,8 @@
 -- Смэш мне в ногу: схема Supabase (проект ktpeclypxevbfwtvuwbi)
 -- Снято с рабочей базы 17.11.2026. Скрипт можно прогнать на чистом проекте целиком.
 -- Клиент ходит в REST с публичным ключом (роль anon), доступ ограничен RLS.
+-- Таблицы anon только читает. Пишет — через функции с ПИНом: bdm_login, bdm_sync, bdm_room
+-- (с 17.11.2026, см. migrations/20261117_writes_need_pin.sql).
 
 create extension if not exists pgcrypto with schema extensions;
 
@@ -24,7 +26,8 @@ create table if not exists public.matches (
 create index if not exists matches_t_idx on public.matches (t desc);
 alter table public.matches enable row level security;
 create policy "matches read" on public.matches for select to anon, authenticated using (true);
-create policy "matches add" on public.matches for insert to anon, authenticated with check (true);
+revoke all on public.matches from anon, authenticated;   -- пишет только bdm_sync
+grant select on public.matches to anon, authenticated;
 
 -- ========= Игроки и рекорды =========
 create table if not exists public.players (
@@ -37,8 +40,8 @@ create table if not exists public.players (
 );
 alter table public.players enable row level security;
 create policy "players read" on public.players for select to anon, authenticated using (true);
-create policy "players add" on public.players for insert to anon, authenticated with check (true);
-create policy "players edit" on public.players for update to anon, authenticated using (true) with check (true);
+revoke all on public.players from anon, authenticated;   -- пишет только bdm_sync
+grant select on public.players to anon, authenticated;
 
 -- ========= Открытые комнаты для лобби «Ждут соперника» =========
 create table if not exists public.rooms (
@@ -51,10 +54,8 @@ create table if not exists public.rooms (
 create index if not exists rooms_updated_idx on public.rooms (updated_at desc);
 alter table public.rooms enable row level security;
 create policy "rooms read" on public.rooms for select to anon, authenticated using (true);
-create policy "rooms add" on public.rooms for insert to anon, authenticated with check (true);
-create policy "rooms edit" on public.rooms for update to anon, authenticated using (true) with check (true);
-create policy "rooms remove" on public.rooms for delete to anon, authenticated using (true);
-grant select, insert, update, delete on public.rooms to anon, authenticated;
+revoke all on public.rooms from anon, authenticated;   -- пишет только bdm_room
+grant select on public.rooms to anon, authenticated;
 
 -- ========= Вход по имени и ПИН-коду =========
 create table if not exists public.accounts (
@@ -86,6 +87,29 @@ create table if not exists public.legacy_players as select pid, name from public
 alter table public.legacy_players enable row level security;
 revoke all on public.legacy_players from anon, authenticated;
 
+-- Проверка ПИНа для функций записи: тот же счётчик ошибок и блок на 15 минут, что у bdm_login.
+-- Ответ: ok | bad | noacc | locked | pin. Снаружи не вызывается.
+create or replace function public.bdm_auth(p_pid text, p_pin text)
+returns text language plpgsql security definer set search_path = public, extensions as $fn$
+declare
+  a public.accounts;
+begin
+  if coalesce(p_pin, '') !~ '^[0-9]{4}$' or coalesce(p_pid, '') !~ '^[a-z0-9]{6,16}$' then return 'bad'; end if;
+  select * into a from accounts where pid = p_pid for update;
+  if not found then return 'noacc'; end if;
+  if a.locked_until is not null and a.locked_until > now() then return 'locked'; end if;
+  if a.pin_hash <> crypt(p_pin, a.pin_hash) then
+    update accounts set fails = fails + 1,
+      locked_until = case when fails + 1 >= 8 then now() + interval '15 minutes' else null end
+    where pid = a.pid;
+    return 'pin';
+  end if;
+  if a.fails <> 0 or a.locked_until is not null then update accounts set fails = 0, locked_until = null where pid = a.pid; end if;
+  return 'ok';
+end
+$fn$;
+revoke all on function public.bdm_auth(text, text) from public, anon, authenticated;
+
 -- p_mode: 'new' — регистрация (или вход, если имя уже твоё и ПИН верный),
 --         'login' — только вход (несуществующее имя -> err 'noname'),
 --         'rename' — смена имени своего аккаунта.
@@ -98,6 +122,7 @@ declare
   md text := coalesce(p_mode, 'new');
   legacy text;
   target text;
+  st text;
 begin
   if coalesce(p_pin, '') !~ '^[0-9]{4}$' or coalesce(p_pid, '') !~ '^[a-z0-9]{6,16}$' or char_length(nm) not between 1 and 16
      or md not in ('new', 'login', 'rename') then
@@ -124,9 +149,9 @@ begin
 
   if md = 'login' then return json_build_object('ok', false, 'err', 'noname'); end if;
 
-  select * into a from accounts where pid = p_pid;
-  if found then
-    if a.pin_hash <> crypt(p_pin, a.pin_hash) then return json_build_object('ok', false, 'err', 'pin'); end if;
+  if exists (select 1 from accounts where pid = p_pid) then
+    st := bdm_auth(p_pid, p_pin);
+    if st <> 'ok' then return json_build_object('ok', false, 'err', case when st = 'locked' then 'locked' else 'pin' end); end if;
     update accounts set name = nm where pid = p_pid;
     return json_build_object('ok', true, 'pid', p_pid, 'name', nm, 'mode', 'rename');
   end if;
@@ -152,3 +177,99 @@ end
 $fn$;
 revoke all on function public.bdm_login(text, text, text, text) from public;
 grant execute on function public.bdm_login(text, text, text, text) to anon, authenticated;
+
+-- Синхронизация своего. p_matches — массив строк как в таблице matches (до 200): записываются только матчи,
+-- где игрок участвует своим id или старым, склеенным с аккаунтом; чужие и кривые пропускаются.
+-- p_best — { smash, rally, train }: рекорды только растут, имя всегда берётся из аккаунта.
+-- Ответ: { ok: true, saved, skipped: [id…] } или { ok: false, err: bad | noacc | locked | pin }
+create or replace function public.bdm_sync(p_pid text, p_pin text, p_matches jsonb default '[]'::jsonb, p_best jsonb default null)
+returns json language plpgsql security definer set search_path = public, extensions as $fn$
+declare
+  st text := bdm_auth(p_pid, p_pin);
+  ms jsonb := coalesce(p_matches, '[]'::jsonb);
+  me text[];
+  m jsonb;
+  n int;
+  saved int := 0;
+  skipped text[] := '{}';
+  max_t bigint := (extract(epoch from now()) * 1000)::bigint + 86400000;  -- не из будущего (сутки на кривые часы)
+  num constant text := '^[0-9]{1,4}$';
+begin
+  if st <> 'ok' then return json_build_object('ok', false, 'err', st); end if;
+  if jsonb_typeof(ms) <> 'array' or jsonb_array_length(ms) > 200 or (p_best is not null and jsonb_typeof(p_best) <> 'object') then
+    return json_build_object('ok', false, 'err', 'bad');
+  end if;
+  me := array(select p_pid union select from_pid from aliases where to_pid = p_pid);
+
+  for m in select value from jsonb_array_elements(ms) loop
+    if jsonb_typeof(m) = 'object'
+       and ((m->>'k' = 'ai' and m->>'p' = any(me)) or (m->>'k' = 'net' and (m->>'a' = any(me) or m->>'b' = any(me))))
+       and coalesce(m->>'t', '') ~ '^[0-9]{10,15}$' and (m->>'t')::bigint <= max_t then
+      begin
+        insert into matches (id, t, k, a, b, w, p, lv, win, s1, s2)
+        values (m->>'id', (m->>'t')::bigint, m->>'k', m->>'a', m->>'b', m->>'w', m->>'p', m->>'lv',
+                (m->>'win')::boolean, (m->>'s1')::int, (m->>'s2')::int)
+        on conflict (id) do nothing;
+        get diagnostics n = row_count;
+        saved := saved + n;
+      exception when others then
+        skipped := skipped || coalesce(m->>'id', '?');
+      end;
+    else
+      skipped := skipped || coalesce(m->>'id', '?');
+    end if;
+  end loop;
+
+  if p_best is not null then
+    insert into players as pl (pid, name, best_smash, best_rally, best_train, updated_at)
+    select a.pid, a.name,
+      least(case when p_best->>'smash' ~ num then (p_best->>'smash')::int else 0 end, 400),
+      least(case when p_best->>'rally' ~ num then (p_best->>'rally')::int else 0 end, 999),
+      least(case when p_best->>'train' ~ num then (p_best->>'train')::int else 0 end, 999),
+      now()
+    from accounts a where a.pid = p_pid
+    on conflict (pid) do update set
+      name = excluded.name,
+      best_smash = greatest(pl.best_smash, excluded.best_smash),
+      best_rally = greatest(pl.best_rally, excluded.best_rally),
+      best_train = greatest(pl.best_train, excluded.best_train),
+      updated_at = now();
+  end if;
+  return json_build_object('ok', true, 'saved', saved, 'skipped', skipped);
+end
+$fn$;
+revoke all on function public.bdm_sync(text, text, jsonb, jsonb) from public;
+grant execute on function public.bdm_sync(text, text, jsonb, jsonb) to anon, authenticated;
+
+-- Своя комната в лобби: p_status open | playing — объявить или обновить пульс, gone — убрать.
+-- У игрока одна комната; занятый живой код чужого игрока не перехватить; комнаты старше часа удаляются.
+-- Ответ: { ok: true } или { ok: false, err: bad | noacc | locked | pin | taken }
+create or replace function public.bdm_room(p_pid text, p_pin text, p_code text, p_status text)
+returns json language plpgsql security definer set search_path = public, extensions as $fn$
+declare
+  st text := bdm_auth(p_pid, p_pin);
+  r public.rooms;
+begin
+  if st <> 'ok' then return json_build_object('ok', false, 'err', st); end if;
+  if coalesce(p_code, '') !~ '^[A-Z2-9]{4}$' or coalesce(p_status, '') not in ('open', 'playing', 'gone') then
+    return json_build_object('ok', false, 'err', 'bad');
+  end if;
+  delete from rooms where updated_at < now() - interval '1 hour';
+  if p_status = 'gone' then
+    delete from rooms where code = p_code and host_pid = p_pid;
+    return json_build_object('ok', true);
+  end if;
+  select * into r from rooms where code = p_code;
+  if found and r.host_pid <> p_pid and r.updated_at > now() - interval '45 seconds' then
+    return json_build_object('ok', false, 'err', 'taken');
+  end if;
+  delete from rooms where host_pid = p_pid and code <> p_code;
+  insert into rooms (code, host_pid, host_name, status, updated_at)
+  select p_code, a.pid, a.name, p_status, now() from accounts a where a.pid = p_pid
+  on conflict (code) do update set host_pid = excluded.host_pid, host_name = excluded.host_name,
+    status = excluded.status, updated_at = now();
+  return json_build_object('ok', true);
+end
+$fn$;
+revoke all on function public.bdm_room(text, text, text, text) from public;
+grant execute on function public.bdm_room(text, text, text, text) to anon, authenticated;

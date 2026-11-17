@@ -1954,7 +1954,7 @@ function netCallbacks() {
       const link = /^https?:$/.test(location.protocol) && !inClaude() ? location.origin + location.pathname + '#' + code : '';
       $('netControls').hidden = true;
       lobbyAnnounce('open'); clearInterval(Net.lobbyBeat); Net.lobbyBeat = setInterval(() => lobbyAnnounce('open'), 20000);
-      setNetStatus(`<div class="wait"><span class="code">${code}</span><span>${cloudOn() ? 'Друзья увидят тебя в списке «Ждут соперника». Или отправь' : 'Отправь'} код${link ? ' или ссылку' : ''} другу. Игра начнётся, как только он войдёт.</span>` +
+      setNetStatus(`<div class="wait"><span class="code">${code}</span><span>${canWrite() ? 'Друзья увидят тебя в списке «Ждут соперника». Или отправь' : 'Отправь'} код${link ? ' или ссылку' : ''} другу. Игра начнётся, как только он войдёт.</span>` +
         `<span class="wait-actions">${link && navigator.share ? '<button class="btn accent" id="shareLink">Пригласить</button>' : ''}${link ? '<button class="btn soft" id="copyLink">Скопировать ссылку</button>' : ''}<button class="linkbtn" id="netCancel">Отменить</button></span></div>`);
       const shb = $('shareLink');
       if (shb) shb.addEventListener('click', () => { navigator.share({ title: 'Смэш мне в ногу', text: 'Залетай на партию в бадминтон! Код комнаты ' + code, url: link }).catch(() => {}); });
@@ -2451,17 +2451,23 @@ function renderFoot() {
   if (cloudOk === false) { f.textContent = 'Нет связи с общей таблицей, показаны результаты с этого устройства'; return; }
   f.innerHTML = '<span class="live"></span>' + (cloudOk ? 'Общая таблица для всех игроков' : 'Загружаем общую таблицу…');
 }
+// Писать в общую таблицу можно только своё и только с ПИНом: база проверяет его в bdm_sync / bdm_room
+const canWrite = () => cloudOn() && !!profile.acc && /^\d{4}$/.test(profile.pin || '') && !!profile.name;
+const authBody = extra => JSON.stringify({ p_pid: profile.pid, p_pin: profile.pin, ...extra });
+function dropAuth() { profile.acc = false; delete profile.pin; saveJSON('bdm-profile', profile); } // ПИН больше не подходит — спросим заново
+async function cloudPush() {
+  if (!canWrite()) return;
+  const pending = store.recs.filter(r => !store.cloud.has(r.id)).slice(-200);
+  const res = await cloudReq('rpc/bdm_sync', { method: 'POST', body: authBody({ p_matches: pending.map(toRow),
+    p_best: { smash: bestOf(profile.pid, store.best), rally: bestOf(profile.pid, store.rally), train: bestOf(profile.pid, store.train) } }) });
+  if (res && res.ok) pending.forEach(r => store.cloud.add(r.id)); // чужие матчи база пропускает — их запишут сами участники
+  else if (res && (res.err === 'pin' || res.err === 'noacc')) dropAuth();
+}
 async function cloudSync() {
   if (!cloudOn() || cloudBusy) return;
   cloudBusy = true;
   try {
-    const pending = store.recs.filter(r => !store.cloud.has(r.id)).slice(-200);
-    if (pending.length) {
-      await cloudReq('matches', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(pending.map(toRow)) });
-      pending.forEach(r => store.cloud.add(r.id));
-    }
-    if (profile.name) await cloudReq('players?on_conflict=pid', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify([{ pid: profile.pid, name: profile.name, best_smash: store.best[profile.pid] || 0, best_rally: store.rally[profile.pid] || 0, best_train: bestOf(profile.pid, store.train) || 0, updated_at: new Date().toISOString() }]) });
+    try { await cloudPush(); } catch (_) {} // не записалось — попробуем в следующий раз, таблицу всё равно читаем
     const [ms, ps, al] = await Promise.all([
       cloudReq('matches?select=id,t,k,a,b,w,p,lv,win,s1,s2&order=t.desc&limit=5000'),
       cloudReq('players?select=pid,name,best_smash,best_rally,best_train,updated_at&limit=3000'),
@@ -2484,13 +2490,13 @@ setInterval(() => { if (!document.hidden && !$('menu').hidden) cloudSync(); }, 4
 /* ========= Лобби: открытые комнаты ========= */
 const LOBBY_TTL = 45000;
 async function lobbyAnnounce(status) {
-  if (!cloudOn() || !Net.code || Net.role !== 'host' || !profile.name) return;
-  try { await cloudReq('rooms?on_conflict=code', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify([{ code: Net.code, host_pid: profile.pid, host_name: profile.name, status, updated_at: new Date().toISOString() }]) }); } catch (_) {}
+  if (!canWrite() || !Net.code || Net.role !== 'host') return;
+  try { await cloudReq('rpc/bdm_room', { method: 'POST', body: authBody({ p_code: Net.code, p_status: status }) }); } catch (_) {}
 }
 function lobbyRemove(code) {
-  if (!cloudOn() || !code) return;
-  try { fetch(CLOUD.url + '/rest/v1/rooms?code=eq.' + encodeURIComponent(code), { method: 'DELETE', keepalive: true, headers: { apikey: CLOUD.key } }).catch(() => {}); } catch (_) {}
+  if (!canWrite() || !code) return;
+  try { fetch(CLOUD.url + '/rest/v1/rpc/bdm_room', { method: 'POST', keepalive: true, headers: { apikey: CLOUD.key, 'Content-Type': 'application/json' },
+    body: authBody({ p_code: code, p_status: 'gone' }) }).catch(() => {}); } catch (_) {}
 }
 async function lobbyRefresh() {
   const box = $('lobby'); if (!box) return;

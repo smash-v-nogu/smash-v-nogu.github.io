@@ -1,9 +1,9 @@
-"""Вход по имени и ПИН: регистрация, неверный ПИН, вход с другого браузера, смена имени.
-Supabase подменён фейковым сервером в памяти (логика как у функции bdm_login)."""
+"""Вход по имени и ПИН: регистрация, неверный ПИН, вход с другого браузера, смена имени, запись своего через bdm_sync.
+Supabase подменён фейковым сервером в памяти (логика как у функций bdm_login и bdm_sync); прямая запись в таблицы роняет тест."""
 import json
 from _util import sync_playwright, BASE, launch
 
-accounts, aliases, matches, players, calls = {}, {}, [], {}, []
+accounts, aliases, matches, players, calls, syncs, direct = {}, {}, [], {}, [], [], []
 
 
 def handle(route):
@@ -28,16 +28,27 @@ def handle(route):
             else:
                 accounts[n.lower()] = {'pid': pid, 'name': n, 'pin': pin}; res = {'ok': True, 'pid': pid, 'name': n, 'mode': 'new'}
         return route.fulfill(status=200, content_type='application/json', body=json.dumps(res))
+    if '/rpc/bdm_sync' in u:
+        b = json.loads(req.post_data); syncs.append(b)
+        a = next((x for x in accounts.values() if x['pid'] == b['p_pid']), None)
+        if not a: res = {'ok': False, 'err': 'noacc'}
+        elif a['pin'] != b['p_pin']: res = {'ok': False, 'err': 'pin'}
+        else:
+            mine = {a['pid']} | {k for k, v in aliases.items() if v == a['pid']}
+            for m in b.get('p_matches') or []:
+                if ((m['k'] == 'ai' and m['p'] in mine) or (m['k'] == 'net' and (m['a'] in mine or m['b'] in mine))) \
+                        and not any(x['id'] == m['id'] for x in matches): matches.append(m)
+            best, pl = b.get('p_best') or {}, players.setdefault(a['pid'], {'pid': a['pid'], 'best_smash': 0, 'best_rally': 0, 'best_train': 0})
+            pl.update(name=a['name'], updated_at='2026-11-17T12:00:00Z', best_smash=max(pl['best_smash'], best.get('smash', 0)),
+                      best_rally=max(pl['best_rally'], best.get('rally', 0)), best_train=max(pl['best_train'], best.get('train', 0)))
+            res = {'ok': True, 'saved': 0, 'skipped': []}
+        return route.fulfill(status=200, content_type='application/json', body=json.dumps(res))
     if req.method == 'GET':
         body = ([{'from_pid': k, 'to_pid': v} for k, v in aliases.items()] if '/aliases' in u
                 else matches if '/matches' in u else list(players.values()) if '/players' in u else [])
         return route.fulfill(status=200, content_type='application/json', body=json.dumps(body))
-    if '/players' in u and req.method == 'POST':
-        for p in json.loads(req.post_data): players[p['pid']] = p
-    if '/matches' in u and req.method == 'POST':
-        for m in json.loads(req.post_data):
-            if not any(x['id'] == m['id'] for x in matches): matches.append(m)
-    return route.fulfill(status=201, body='')
+    direct.append(req.method + ' ' + u.split('/rest/v1/')[-1])  # прямая запись в таблицу — в настоящей базе закрыта
+    return route.fulfill(status=401, content_type='application/json', body='{"code":"42501"}')
 
 
 errs = []
@@ -56,6 +67,17 @@ with sync_playwright() as pw:
     pa = A.evaluate("() => __bdm.profile.pid")
     assert A.is_visible('#rules'), 'новичку открываются правила'
     A.click('#rClose')
+    assert players.get(pa, {}).get('name') == 'Кирилл', 'после регистрации игрок записан через bdm_sync'
+    assert syncs and all(x['p_pid'] == pa and x['p_pin'] == '1234' for x in syncs), 'запись подписана своим ПИНом'
+    A.evaluate("""() => { const b = __bdm; b.store.recs.push(
+        { id: 'mineai0001', t: Date.now(), k: 'ai', p: b.profile.pid, lv: 'hard', win: true, s: [15, 9] },
+        { id: 'foreign001', t: Date.now(), k: 'ai', p: 'stranger01', lv: 'easy', win: true, s: [15, 2] }); return b.cloudSync(); }""")
+    A.wait_for_timeout(300)
+    assert [m['id'] for m in matches] == ['mineai0001'], 'в базу ушёл только свой матч'
+    assert A.evaluate("() => __bdm.store.cloud.has('foreign001')"), 'чужой матч больше не отправляется'
+    n_sync = len(syncs)
+    A.evaluate("() => __bdm.cloudSync()"); A.wait_for_timeout(300)
+    assert syncs[-1]['p_matches'] == [] and len(syncs) == n_sync + 1, 'отправленное не повторяется'
 
     B = page(2)
     B.click('#authSeg button[data-m="login"]')
@@ -77,7 +99,18 @@ with sync_playwright() as pw:
     assert len(calls) == n0, 'смена только стиля не ходит на сервер'
     B.click('#editName'); B.fill('#nameInput', 'Кир'); B.click('#nameSubmit'); B.wait_for_timeout(400)
     assert calls[-1] == 'rename' and list(accounts) == ['кир']
+    B.wait_for_timeout(300)
+    assert players[pa]['name'] == 'Кир', 'имя в таблице берётся из аккаунта'
+
+    # ПИН сменили в базе — клиент перестаёт писать и при следующем входе спросит ПИН заново
+    accounts['кир']['pin'] = '9999'; n_sync = len(syncs)
+    B.evaluate("() => __bdm.cloudSync()"); B.wait_for_timeout(400)
+    assert B.evaluate("() => [__bdm.profile.acc, 'pin' in __bdm.profile]") == [False, False]
+    B.evaluate("() => __bdm.cloudSync()"); B.wait_for_timeout(300)
+    assert len(syncs) == n_sync + 1, 'без ПИНа запись не отправляется'
     br.close()
+
+assert not direct, f'игра писала в таблицы напрямую: {direct}'
 
 assert not errs, errs
 print('OK: вход по ПИН')

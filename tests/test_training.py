@@ -13,8 +13,10 @@ def handle(route):
     if req.method == 'GET':
         body = [{'pid': 'friend0001', 'name': 'Саша', 'best_smash': 250, 'best_rally': 9, 'best_train': 44, 'updated_at': '2026-11-17T10:00:00Z'}] if '/players' in u else []
         return route.fulfill(status=200, content_type='application/json', body=json.dumps(body))
-    if '/players' in u and req.method == 'POST': posted.extend(json.loads(req.post_data))
-    return route.fulfill(status=201, body='')
+    if '/rpc/bdm_sync' in u:
+        b = json.loads(req.post_data); posted.append(b['p_best'])
+        return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'saved': 0, 'skipped': []}))
+    return route.fulfill(status=401, body='')  # прямая запись в таблицы закрыта
 
 
 BOT = """
@@ -50,7 +52,7 @@ with sync_playwright() as pw:
     print('итог тренировки:', r)
     assert r['state'] == 'over' and r['left'] == 0 and r['score'] > 0
     A.wait_for_timeout(800)
-    assert any(p.get('best_train') == r['score'] for p in posted), 'рекорд ушёл в общую таблицу'
+    assert any(p.get('train') == r['score'] for p in posted), 'рекорд ушёл в общую таблицу через bdm_sync'
     br.close()
 
 assert not errs, errs
