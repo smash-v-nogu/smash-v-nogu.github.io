@@ -170,6 +170,7 @@ body.touch .sidepanel .about { padding-top: 0; border-top: 0; }
 .field { width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--edge); background: #0e1719; color: var(--ink); font: 500 16px var(--font-body); text-align: center; }
 .card-sub { margin: -8px 0 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
 .styles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.styles[hidden] { display: none; }
 .styles button { display: grid; gap: 3px; padding: 10px 8px; border-radius: 12px; border: 1px solid var(--edge); background: rgba(0, 0, 0, 0.18); text-align: center; }
 .styles button b { font: 700 13px var(--font-display); }
 .styles button small { font-size: 11px; color: var(--muted); line-height: 1.3; }
@@ -201,8 +202,18 @@ body.touch .sidepanel .about { padding-top: 0; border-top: 0; }
 .lb td.name .av { width: 22px; height: 22px; margin-right: 9px; }
 .name-warn { margin: -6px 0 0; font-size: 12.5px; color: var(--lamp); line-height: 1.4; }
 .name-warn[hidden] { display: none; }
-.field.pin { letter-spacing: 0.5em; text-indent: 0.5em; }
-.field.pin::placeholder { letter-spacing: normal; text-indent: 0; }
+.fl { display: grid; gap: 6px; text-align: left; }
+.fl[hidden] { display: none; }
+.fl-l { padding-left: 4px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.fl .field { text-align: left; }
+.fl-hint { margin: -8px 0 0; padding-left: 4px; font-size: 12.5px; color: var(--muted); line-height: 1.4; text-align: left; }
+.fl-hint[hidden] { display: none; }
+.field.pin { letter-spacing: 0.6em; font-weight: 700; }
+.field.pin::placeholder { letter-spacing: normal; font-weight: 500; }
+.seg.two { grid-template-columns: 1fr 1fr; }
+.seg[hidden] { display: none; }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--lamp); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+#nameDlg .name-warn, #nameDlg .name-err { text-align: left; padding-left: 4px; }
 .field[hidden] { display: none; }
 .name-err { margin: -6px 0 0; font-size: 13px; color: #ff8a7a; line-height: 1.4; }
 .name-err[hidden] { display: none; }
@@ -432,10 +443,15 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
   <form class="card" id="nameForm" novalidate>
     <span class="ava big" id="nameAva" aria-hidden="true">?</span>
     <h2 id="nameTitle">Как тебя зовут?</h2>
-    <p class="card-sub" id="nameSub">Имя увидят соперники и таблица. Стиль можно поменять в любой момент</p>
-    <input class="field" id="nameInput" maxlength="16" autocomplete="nickname" placeholder="Имя" aria-label="Имя">
-    <p class="name-warn" id="nameWarn" hidden>Это имя уже есть в таблице. Если это ты, введи свой ПИН, и победы вернутся.</p>
-    <input class="field pin" id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="ПИН · 4 цифры" aria-label="ПИН из 4 цифр">
+    <p class="card-sub" id="nameSub">Имя увидят соперники и таблица</p>
+    <div class="seg two" role="radiogroup" aria-label="Вход" id="authSeg" hidden>
+      <button type="button" role="radio" data-m="new" aria-checked="true">Я новенький</button>
+      <button type="button" role="radio" data-m="login" aria-checked="false">Уже играл</button>
+    </div>
+    <label class="fl"><span class="fl-l">Имя</span><input class="field" id="nameInput" maxlength="16" autocomplete="nickname" placeholder="Например, Саша"></label>
+    <p class="name-warn" id="nameWarn" hidden>Такое имя уже есть. <button type="button" class="linkbtn" id="warnLogin">Это я, войти</button></p>
+    <label class="fl" id="pinWrap"><span class="fl-l" id="pinLabel">Придумай ПИН из 4 цифр</span><input class="field pin" id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="4 цифры"></label>
+    <p class="fl-hint" id="pinHint">Запомни его: по имени и ПИНу войдёшь с телефона или другого браузера</p>
     <p class="name-err" id="nameErr" role="alert" hidden></p>
     <div class="styles" role="radiogroup" aria-label="Стиль игры" id="styleSeg">
       <button type="button" role="radio" data-style="attack" aria-checked="false"><b>Атака</b><small>смэш сильнее, устаёшь быстрее</small></button>
@@ -443,6 +459,7 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
       <button type="button" role="radio" data-style="defense" aria-checked="false"><b>Защита</b><small>дальше достаёшь, смэш слабее</small></button>
     </div>
     <button class="btn primary block" type="submit" id="nameSubmit">Готово</button>
+    <button class="later" type="button" id="nameAlt" hidden></button>
     <button class="later" type="button" id="nameLater" hidden>Позже</button>
   </form>
 </section>
@@ -2120,40 +2137,80 @@ function nameTaken(n) {
 function nameError(msg) { $('nameErr').textContent = msg; $('nameErr').hidden = !msg; }
 $('pinInput').addEventListener('input', e => { const v = e.target.value.replace(/\D/g, '').slice(0, 4); if (v !== e.target.value) e.target.value = v; nameError(''); });
 $('nameLater').addEventListener('click', () => { $('nameDlg').hidden = true; });
-$('nameInput').addEventListener('input', e => { $('nameAva').textContent = (cleanName(e.target.value) || '?').charAt(0).toUpperCase(); $('nameWarn').hidden = !nameTaken(e.target.value); });
+$('nameInput').addEventListener('input', e => { $('nameAva').textContent = (cleanName(e.target.value) || '?').charAt(0).toUpperCase(); $('nameWarn').hidden = dlgMode !== 'new' || !nameTaken(e.target.value); nameError(''); });
 let pickStyle = profile.style;
 function syncStyleSeg() { for (const o of document.querySelectorAll('#styleSeg button')) o.setAttribute('aria-checked', String(o.dataset.style === pickStyle)); }
 for (const o of document.querySelectorAll('#styleSeg button')) o.addEventListener('click', () => { pickStyle = o.dataset.style; syncStyleSeg(); });
+let dlgMode = 'new';
+const DLG = {
+  new: { title: 'Как тебя зовут?', sub: 'Имя увидят соперники и таблица', pin: 'Придумай ПИН из 4 цифр', hint: 'Запомни его: по имени и ПИНу войдёшь с телефона или другого браузера', btn: 'Начать', styles: true },
+  login: { title: 'С возвращением', sub: 'Введи имя и ПИН, которые придумал, когда заходил в первый раз', pin: 'Твой ПИН', hint: '', btn: 'Войти', styles: false },
+  pin: { title: 'Защити профиль', sub: 'Придумай ПИН из 4 цифр. С ним войдёшь в этот профиль с телефона или другого браузера и не потеряешь победы', pin: 'Придумай ПИН из 4 цифр', hint: '', btn: 'Сохранить ПИН', styles: false },
+  edit: { title: 'Профиль', sub: 'Имя и стиль игры', pin: 'Твой ПИН', hint: '', btn: 'Сохранить', styles: true },
+};
+function setDlgMode(m) {
+  dlgMode = m;
+  const d = DLG[m], cloud = cloudOn();
+  $('nameTitle').textContent = d.title;
+  $('nameSub').textContent = !cloud && (m === 'new' || m === 'edit') ? 'Имя увидят соперники и таблица. Стиль можно поменять в любой момент' : d.sub;
+  $('authSeg').hidden = !cloud || (m !== 'new' && m !== 'login');
+  for (const b of document.querySelectorAll('#authSeg button')) b.setAttribute('aria-checked', String(b.dataset.m === m));
+  $('pinWrap').hidden = !cloud || (m === 'edit' && !!profile.pin);
+  $('pinLabel').textContent = d.pin;
+  $('pinHint').textContent = d.hint; $('pinHint').hidden = !cloud || !d.hint;
+  $('styleSeg').hidden = !d.styles;
+  $('nameSubmit').textContent = d.btn;
+  const alt = cloud && m === 'pin' ? 'Уже ставил ПИН на другом устройстве? Войти' : cloud && m === 'edit' ? 'Войти в другой аккаунт' : '';
+  $('nameAlt').textContent = alt; $('nameAlt').hidden = !alt;
+  $('nameLater').hidden = m !== 'pin';
+  $('nameWarn').hidden = true; nameError('');
+}
+for (const b of document.querySelectorAll('#authSeg button')) b.addEventListener('click', () => { setDlgMode(b.dataset.m); $('pinInput').value = ''; ($('nameInput').value ? $('pinInput') : $('nameInput')).focus(); });
+$('nameAlt').addEventListener('click', () => {
+  if (dlgMode === 'edit') $('nameInput').value = '';
+  $('pinInput').value = ''; setDlgMode('login'); ($('nameInput').value ? $('pinInput') : $('nameInput')).focus();
+});
+$('warnLogin').addEventListener('click', () => { setDlgMode('login'); $('pinInput').value = ''; $('pinInput').focus(); });
 function openNameDlg() {
-  const cloud = cloudOn(), mode = !profile.name ? 'new' : cloud && !profile.acc ? 'pin' : 'edit';
-  const T = {
-    new: ['Как тебя зовут?', cloud ? 'Имя и ПИН из 4 цифр. По ним войдёшь с телефона или другого браузера. Уже играл? Введи те же' : 'Имя увидят соперники и таблица. Стиль можно поменять в любой момент'],
-    pin: ['Придумай ПИН', 'Четыре цифры, чтобы входить с телефона и других браузеров и не терять победы. Уже ставил ПИН? Введи тот же'],
-    edit: ['Профиль', cloud ? 'Можно сменить имя и стиль. Чтобы войти в другой аккаунт, введи его имя и ПИН' : 'Имя увидят соперники и таблица. Стиль можно поменять в любой момент'],
-  }[mode];
-  $('nameTitle').textContent = T[0]; $('nameSub').textContent = T[1];
-  $('pinInput').hidden = !cloud; $('pinInput').value = mode === 'edit' && profile.pin ? profile.pin : '';
-  $('nameLater').hidden = mode !== 'pin'; nameError('');
-  pickStyle = profile.style; syncStyleSeg(); $('nameInput').value = profile.name || ''; $('nameAva').style.background = pidColor(profile.pid); $('nameWarn').hidden = true; $('nameAva').textContent = (profile.name || '?').charAt(0).toUpperCase(); $('nameDlg').hidden = false; setTimeout(() => (mode === 'pin' ? $('pinInput') : $('nameInput')).focus(), 30); }
+  const mode = !profile.name ? 'new' : cloudOn() && !profile.acc ? 'pin' : 'edit';
+  pickStyle = profile.style; syncStyleSeg();
+  $('nameInput').value = profile.name || ''; $('pinInput').value = '';
+  $('nameAva').style.background = pidColor(profile.pid); $('nameAva').textContent = (profile.name || '?').charAt(0).toUpperCase();
+  setDlgMode(mode);
+  $('nameDlg').hidden = false;
+  setTimeout(() => (mode === 'pin' ? $('pinInput') : $('nameInput')).focus(), 30);
+}
 function needName() { if (profile.name) return false; openNameDlg(); return true; }
 let nameBusy = false;
-const LOGIN_ERR = { pin: 'Неверный ПИН. Если это имя не твоё, выбери другое', locked: 'Слишком много попыток. Подожди 15 минут', bad: 'ПИН — ровно 4 цифры' };
 $('nameForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (nameBusy) return;
   let n = cleanName($('nameInput').value);
   if (!n) { $('nameInput').focus(); return; }
-  const firstTime = !profile.name;
+  const firstTime = !profile.name, m = dlgMode;
   let welcomeBack = false;
   if (cloudOn()) {
-    const pin = $('pinInput').value;
-    if (!/^\d{4}$/.test(pin)) { nameError(LOGIN_ERR.bad); $('pinInput').focus(); return; }
-    if (!(profile.acc && n === profile.name && pin === profile.pin)) {
-      const btn = $('nameSubmit'); nameBusy = true; btn.disabled = true; btn.textContent = 'Проверяем…';
+    const pin = $('pinWrap').hidden ? (profile.pin || '') : $('pinInput').value;
+    if (!/^\d{4}$/.test(pin)) { nameError('ПИН — ровно 4 цифры'); $('pinInput').focus(); return; }
+    if (!(m === 'edit' && profile.acc && n === profile.name)) {
+      const api = m === 'login' ? 'login' : m === 'edit' && profile.acc ? 'rename' : 'new';
+      const btn = $('nameSubmit'), label = btn.textContent; nameBusy = true; btn.disabled = true; btn.textContent = 'Проверяем…';
       let res = null;
-      try { res = await cloudReq('rpc/bdm_login', { method: 'POST', body: JSON.stringify({ p_name: n, p_pin: pin, p_pid: profile.pid }) }); } catch (_) { res = null; }
-      nameBusy = false; btn.disabled = false; btn.textContent = 'Готово';
-      if (res && !res.ok) { nameError(LOGIN_ERR[res.err] || 'Не получилось, попробуй ещё раз'); return; }
+      try { res = await cloudReq('rpc/bdm_login', { method: 'POST', body: JSON.stringify({ p_name: n, p_pin: pin, p_pid: profile.pid, p_mode: api }) }); } catch (_) { res = null; }
+      nameBusy = false; btn.disabled = false; btn.textContent = label;
+      if (res && !res.ok) {
+        const msg = {
+          pin: api === 'login' ? 'Неверный ПИН' : 'Неверный ПИН',
+          noname: `Игрока «${n}» нет. Проверь имя или выбери «Я новенький»`,
+          taken: api === 'rename' ? `Имя «${n}» уже занято, выбери другое` : `Имя «${n}» уже занято. Если это ты, нажми «Уже играл» и введи свой ПИН`,
+          locked: 'Слишком много попыток. Подожди 15 минут',
+          bad: 'ПИН — ровно 4 цифры',
+        }[res.err] || 'Не получилось, попробуй ещё раз';
+        nameError(msg);
+        if (res.err === 'taken' && api !== 'rename') { $('authSeg').hidden = false; }
+        return;
+      }
+      if (!res && m === 'login') { nameError('Нет связи с сервером, попробуй ещё раз'); return; }
       if (res && res.ok && PID.test(res.pid)) {
         // вход в существующий аккаунт: этот браузер становится им, старый id склеивается с ним
         if (res.pid !== profile.pid) { store.alias[profile.pid] = res.pid; profile.pid = res.pid; }
