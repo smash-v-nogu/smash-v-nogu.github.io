@@ -201,6 +201,13 @@ body.touch .sidepanel .about { padding-top: 0; border-top: 0; }
 .lb td.name .av { width: 22px; height: 22px; margin-right: 9px; }
 .name-warn { margin: -6px 0 0; font-size: 12.5px; color: var(--lamp); line-height: 1.4; }
 .name-warn[hidden] { display: none; }
+.field.pin { letter-spacing: 0.5em; text-indent: 0.5em; }
+.field.pin::placeholder { letter-spacing: normal; text-indent: 0; }
+.field[hidden] { display: none; }
+.name-err { margin: -6px 0 0; font-size: 13px; color: #ff8a7a; line-height: 1.4; }
+.name-err[hidden] { display: none; }
+.later { justify-self: center; padding: 4px 10px; border: 0; background: none; color: var(--muted); font: 500 13px var(--font-body); text-decoration: underline; text-underline-offset: 3px; }
+.later[hidden] { display: none; }
 .inapp { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(255, 215, 138, 0.08); border: 1px solid rgba(255, 215, 138, 0.3); color: var(--lamp); font-size: 13px; line-height: 1.45; }
 .inapp[hidden] { display: none; }
 .reacts { position: fixed; top: 12px; left: 14px; display: grid; gap: 6px; z-index: 6; }
@@ -424,16 +431,19 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
 <section class="overlay" id="nameDlg" hidden aria-label="Имя игрока">
   <form class="card" id="nameForm" novalidate>
     <span class="ava big" id="nameAva" aria-hidden="true">?</span>
-    <h2>Как тебя зовут?</h2>
-    <p class="card-sub">Имя увидят соперники и таблица. Стиль можно поменять в любой момент</p>
+    <h2 id="nameTitle">Как тебя зовут?</h2>
+    <p class="card-sub" id="nameSub">Имя увидят соперники и таблица. Стиль можно поменять в любой момент</p>
     <input class="field" id="nameInput" maxlength="16" autocomplete="nickname" placeholder="Имя" aria-label="Имя">
-    <p class="name-warn" id="nameWarn" hidden>Такое имя уже есть в таблице. Добавь букву фамилии или ник, чтобы вас не путали.</p>
+    <p class="name-warn" id="nameWarn" hidden>Это имя уже есть в таблице. Если это ты, введи свой ПИН, и победы вернутся.</p>
+    <input class="field pin" id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="ПИН · 4 цифры" aria-label="ПИН из 4 цифр">
+    <p class="name-err" id="nameErr" role="alert" hidden></p>
     <div class="styles" role="radiogroup" aria-label="Стиль игры" id="styleSeg">
       <button type="button" role="radio" data-style="attack" aria-checked="false"><b>Атака</b><small>смэш сильнее, устаёшь быстрее</small></button>
       <button type="button" role="radio" data-style="tech" aria-checked="true"><b>Техника</b><small>точные дропы, шире чистый удар</small></button>
       <button type="button" role="radio" data-style="defense" aria-checked="false"><b>Защита</b><small>дальше достаёшь, смэш слабее</small></button>
     </div>
-    <button class="btn primary block" type="submit">Готово</button>
+    <button class="btn primary block" type="submit" id="nameSubmit">Готово</button>
+    <button class="later" type="button" id="nameLater" hidden>Позже</button>
   </form>
 </section>
 
@@ -2006,7 +2016,13 @@ profile.name = cleanName(profile.name);
 }
 const store = { recs: [], names: {} };
 { const r = loadJSON('bdm-recs', []), n = loadJSON('bdm-names', {}), b = loadJSON('bdm-best', {}), ra = loadJSON('bdm-rally', {}), cl = loadJSON('bdm-cloud', []); if (Array.isArray(r)) store.recs = r; if (n && typeof n === 'object') store.names = n; store.best = b && typeof b === 'object' ? b : {}; store.rally = ra && typeof ra === 'object' ? ra : {}; store.cloud = new Set(Array.isArray(cl) ? cl.slice(-6000) : []); }
-function saveStore() { if (store.recs.length > 800) store.recs = store.recs.slice(-800); saveJSON('bdm-recs', store.recs); saveJSON('bdm-names', store.names); saveJSON('bdm-best', store.best); saveJSON('bdm-rally', store.rally); saveJSON('bdm-cloud', [...store.cloud].slice(-6000)); }
+store.alias = (() => { const a = loadJSON('bdm-alias', {}); return a && typeof a === 'object' ? a : {}; })();
+// один игрок мог появиться под разными id (другой браузер, вход по ПИНу) — считаем всё на основной id
+function canon(pid) { let p = pid; for (let i = 0; i < 5 && store.alias[p]; i++) p = store.alias[p]; return p; }
+function bestOf(pid, src) { let m = 0; for (const k in src) if (canon(k) === pid && src[k] > m) m = src[k]; return m; }
+function adoptAlias() { const c = canon(profile.pid); if (c !== profile.pid) { profile.pid = c; saveJSON('bdm-profile', profile); return true; } return false; }
+adoptAlias();
+function saveStore() { if (store.recs.length > 800) store.recs = store.recs.slice(-800); saveJSON('bdm-alias', store.alias); saveJSON('bdm-recs', store.recs); saveJSON('bdm-names', store.names); saveJSON('bdm-best', store.best); saveJSON('bdm-rally', store.rally); saveJSON('bdm-cloud', [...store.cloud].slice(-6000)); }
 function noteBest(pid, kmh) { if (!PID.test(pid) || !Number.isInteger(kmh) || kmh < 20 || kmh > 400) return false; if ((store.best[pid] || 0) >= kmh) return false; store.best[pid] = kmh; return true; }
 function updateBest(kmh) { if (noteBest(profile.pid, kmh)) { saveStore(); renderHello(); renderStandings(); } }
 function noteRally(pid, n) { if (!PID.test(pid) || !Number.isInteger(n) || n < 1 || n > 999) return false; if ((store.rally[pid] || 0) >= n) return false; store.rally[pid] = n; return true; }
@@ -2036,12 +2052,14 @@ function standings() {
   const st = {};
   const row = pid => st[pid] || (st[pid] = { pid, w: 0, n: 0, aw: 0, an: 0, lv: { easy: 0, medium: 0, hard: 0 } });
   // место — по победам над друзьями, при равенстве по разнице побед и поражений, потом по победам над ИИ
+  const C = canon;
   for (const r of store.recs) {
-    if (r.k === 'net') { const a = row(r.a), b = row(r.b); a.n++; b.n++; (r.w === r.a ? a : b).w++; }
-    else { const a = row(r.p); a.an++; if (r.win) { a.aw++; a.lv[r.lv]++; } }
+    if (r.k === 'net') { const pa = C(r.a), pb = C(r.b); if (pa === pb) continue; const a = row(pa), b = row(pb); a.n++; b.n++; (C(r.w) === pa ? a : b).w++; }
+    else { const a = row(C(r.p)); a.an++; if (r.win) { a.aw++; a.lv[r.lv]++; } }
   }
-  if (profile.name && !st[profile.pid] && store.best[profile.pid]) row(profile.pid);
-  const rows = Object.values(st).map(x => ({ ...x, best: store.best[x.pid] || 0, name: (store.names[x.pid] && store.names[x.pid][0]) || (x.pid === profile.pid ? profile.name : 'Игрок') }));
+  if (profile.name && !st[profile.pid] && bestOf(profile.pid, store.best)) row(profile.pid);
+  const nameOf = pid => { if (pid === profile.pid && profile.name) return profile.name; if (store.names[pid]) return store.names[pid][0]; for (const k in store.names) if (C(k) === pid) return store.names[k][0]; return 'Игрок'; };
+  const rows = Object.values(st).map(x => ({ ...x, best: bestOf(x.pid, store.best), name: nameOf(x.pid) }));
   rows.sort((a, b) => b.w - a.w || (b.w - (b.n - b.w)) - (a.w - (a.n - a.w)) || b.aw - a.aw || a.name.localeCompare(b.name));
   // одинаковые имена у разных игроков: «Саша», «Саша 2» — порядок по id одинаковый на всех устройствах
   const groups = {};
@@ -2088,7 +2106,7 @@ function renderHello() {
   $('meName').textContent = profile.name || 'Без имени';
   $('meAva').textContent = (profile.name || '?').charAt(0).toUpperCase();
   $('meAva').style.background = pidColor(profile.pid);
-  const b = store.best[profile.pid], ra = store.rally[profile.pid];
+  const b = bestOf(profile.pid, store.best), ra = bestOf(profile.pid, store.rally);
   const parts = [b ? 'смэш ' + b + ' км/ч' : '', ra ? 'розыгрыш ' + ra + ' уд.' : ''].filter(Boolean);
   $('meBest').textContent = STYLES[profile.style].label + ' · ' + (parts.length ? parts.join(' · ') : 'рекордов пока нет');
 }
@@ -2096,27 +2114,62 @@ const DIFF_NOTE = { easy: 'Медленный и часто ошибается. 
 function renderDiffNote() { $('diffNote').textContent = DIFF_NOTE[game.diff]; }
 function nameTaken(n) {
   n = cleanName(n).toLowerCase(); if (!n) return false;
-  const played = new Set(); for (const r of store.recs) { if (r.k === 'net') { played.add(r.a); played.add(r.b); } else played.add(r.p); }
-  return Object.entries(store.names).some(([pid, v]) => pid !== profile.pid && played.has(pid) && Array.isArray(v) && String(v[0]).toLowerCase() === n);
+  const played = new Set(); for (const r of store.recs) { if (r.k === 'net') { played.add(canon(r.a)); played.add(canon(r.b)); } else played.add(canon(r.p)); }
+  return Object.entries(store.names).some(([pid, v]) => canon(pid) !== profile.pid && played.has(canon(pid)) && Array.isArray(v) && String(v[0]).toLowerCase() === n);
 }
+function nameError(msg) { $('nameErr').textContent = msg; $('nameErr').hidden = !msg; }
+$('pinInput').addEventListener('input', e => { const v = e.target.value.replace(/\D/g, '').slice(0, 4); if (v !== e.target.value) e.target.value = v; nameError(''); });
+$('nameLater').addEventListener('click', () => { $('nameDlg').hidden = true; });
 $('nameInput').addEventListener('input', e => { $('nameAva').textContent = (cleanName(e.target.value) || '?').charAt(0).toUpperCase(); $('nameWarn').hidden = !nameTaken(e.target.value); });
 let pickStyle = profile.style;
 function syncStyleSeg() { for (const o of document.querySelectorAll('#styleSeg button')) o.setAttribute('aria-checked', String(o.dataset.style === pickStyle)); }
 for (const o of document.querySelectorAll('#styleSeg button')) o.addEventListener('click', () => { pickStyle = o.dataset.style; syncStyleSeg(); });
-function openNameDlg() { pickStyle = profile.style; syncStyleSeg(); $('nameInput').value = profile.name || ''; $('nameAva').style.background = pidColor(profile.pid); $('nameWarn').hidden = true; $('nameAva').textContent = (profile.name || '?').charAt(0).toUpperCase(); $('nameDlg').hidden = false; setTimeout(() => $('nameInput').focus(), 30); }
+function openNameDlg() {
+  const cloud = cloudOn(), mode = !profile.name ? 'new' : cloud && !profile.acc ? 'pin' : 'edit';
+  const T = {
+    new: ['Как тебя зовут?', cloud ? 'Имя и ПИН из 4 цифр. По ним войдёшь с телефона или другого браузера. Уже играл? Введи те же' : 'Имя увидят соперники и таблица. Стиль можно поменять в любой момент'],
+    pin: ['Придумай ПИН', 'Четыре цифры, чтобы входить с телефона и других браузеров и не терять победы. Уже ставил ПИН? Введи тот же'],
+    edit: ['Профиль', cloud ? 'Можно сменить имя и стиль. Чтобы войти в другой аккаунт, введи его имя и ПИН' : 'Имя увидят соперники и таблица. Стиль можно поменять в любой момент'],
+  }[mode];
+  $('nameTitle').textContent = T[0]; $('nameSub').textContent = T[1];
+  $('pinInput').hidden = !cloud; $('pinInput').value = mode === 'edit' && profile.pin ? profile.pin : '';
+  $('nameLater').hidden = mode !== 'pin'; nameError('');
+  pickStyle = profile.style; syncStyleSeg(); $('nameInput').value = profile.name || ''; $('nameAva').style.background = pidColor(profile.pid); $('nameWarn').hidden = true; $('nameAva').textContent = (profile.name || '?').charAt(0).toUpperCase(); $('nameDlg').hidden = false; setTimeout(() => (mode === 'pin' ? $('pinInput') : $('nameInput')).focus(), 30); }
 function needName() { if (profile.name) return false; openNameDlg(); return true; }
-$('nameForm').addEventListener('submit', e => {
+let nameBusy = false;
+const LOGIN_ERR = { pin: 'Неверный ПИН. Если это имя не твоё, выбери другое', locked: 'Слишком много попыток. Подожди 15 минут', bad: 'ПИН — ровно 4 цифры' };
+$('nameForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const n = cleanName($('nameInput').value);
+  if (nameBusy) return;
+  let n = cleanName($('nameInput').value);
   if (!n) { $('nameInput').focus(); return; }
   const firstTime = !profile.name;
+  let welcomeBack = false;
+  if (cloudOn()) {
+    const pin = $('pinInput').value;
+    if (!/^\d{4}$/.test(pin)) { nameError(LOGIN_ERR.bad); $('pinInput').focus(); return; }
+    if (!(profile.acc && n === profile.name && pin === profile.pin)) {
+      const btn = $('nameSubmit'); nameBusy = true; btn.disabled = true; btn.textContent = 'Проверяем…';
+      let res = null;
+      try { res = await cloudReq('rpc/bdm_login', { method: 'POST', body: JSON.stringify({ p_name: n, p_pin: pin, p_pid: profile.pid }) }); } catch (_) { res = null; }
+      nameBusy = false; btn.disabled = false; btn.textContent = 'Готово';
+      if (res && !res.ok) { nameError(LOGIN_ERR[res.err] || 'Не получилось, попробуй ещё раз'); return; }
+      if (res && res.ok && PID.test(res.pid)) {
+        // вход в существующий аккаунт: этот браузер становится им, старый id склеивается с ним
+        if (res.pid !== profile.pid) { store.alias[profile.pid] = res.pid; profile.pid = res.pid; }
+        profile.acc = true; profile.pin = pin;
+        n = cleanName(res.name) || n;
+        welcomeBack = res.mode === 'login' || res.mode === 'claim';
+      }
+    }
+  }
   profile.name = n; profile.style = STYLES[pickStyle] ? pickStyle : 'tech'; saveJSON('bdm-profile', profile);
   if (game.mode === '1p' || (game.mode === 'online' && Net.myIdx === 0 && Net.role === 'host')) P[localIdx()].style = profile.style;
   noteName(profile.pid, n, Date.now()); saveStore();
   $('nameDlg').hidden = true;
   renderHello(); renderStandings(); cloudSync();
   if (game.mode !== 'demo') { P[localIdx()].name = n; updateBoard(); }
-  if (firstTime) setTimeout(() => openRules(0), 220); // новичку сразу показываем, как играть
+  if (firstTime && !welcomeBack) setTimeout(() => openRules(0), 220); // новичку сразу показываем, как играть
 });
 $('nameDlg').addEventListener('keydown', e => { if (e.key === 'Escape' && profile.name) $('nameDlg').hidden = true; });
 $('editName').addEventListener('click', openNameDlg);
@@ -2188,10 +2241,13 @@ async function cloudSync() {
     }
     if (profile.name) await cloudReq('players?on_conflict=pid', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify([{ pid: profile.pid, name: profile.name, best_smash: store.best[profile.pid] || 0, best_rally: store.rally[profile.pid] || 0, updated_at: new Date().toISOString() }]) });
-    const [ms, ps] = await Promise.all([
+    const [ms, ps, al] = await Promise.all([
       cloudReq('matches?select=id,t,k,a,b,w,p,lv,win,s1,s2&order=t.desc&limit=5000'),
       cloudReq('players?select=pid,name,best_smash,best_rally,updated_at&limit=3000'),
+      cloudReq('aliases?select=from_pid,to_pid&limit=3000').catch(() => null),
     ]);
+    for (const x of al || []) if (PID.test(x.from_pid) && PID.test(x.to_pid) && x.from_pid !== x.to_pid) store.alias[x.from_pid] = x.to_pid;
+    if (adoptAlias() && store.names[profile.pid]) profile.name = cleanName(store.names[profile.pid][0]) || profile.name;
     const fresh = (ms || []).map(fromRow);
     fresh.forEach(r => store.cloud.add(r.id));
     addRecs(fresh);
@@ -2640,7 +2696,7 @@ function start(data) {
   window.addEventListener('pagehide', () => { if (Net.role === 'host' && !Net.connected && Net.code) lobbyRemove(Net.code); });
   renderHello(); renderStandings(); renderDiffNote(); renderFoot(); cloudSync(); lobbyRefresh();
   if (/Instagram|FBAN|FBAV|FB_IAB|Line\/|VKClient|Telegram|; wv\)/i.test(navigator.userAgent)) $('inapp').hidden = false;
-  if (!profile.name) openNameDlg();
+  if (!profile.name || (cloudOn() && !profile.acc)) openNameDlg();
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 }
 try { window.claude?.hot?.snapshot?.(() => ({ cfg: { ...cfg }, diff: game.diff })); } catch (_) {}
