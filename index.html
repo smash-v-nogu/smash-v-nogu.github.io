@@ -288,6 +288,10 @@ body.touch #touch { display: block; }
 body.touch #hint { display: none; }
 body.touch .only-touch { display: block; }
 body.touch .only-keys { display: none; }
+body.ctl-mouse .ctl-keys, body:not(.ctl-mouse) .ctl-mouse { display: none; }
+body.ctl-mouse .keys .cap.shot { opacity: 0.32; }
+.ctl-seg { margin-bottom: 4px; }
+.tune-ctl { display: grid; gap: 8px; }
 .tpad { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); display: grid; gap: 10px; }
 .tpad.left { left: calc(14px + env(safe-area-inset-left)); grid-template-columns: 72px 72px; }
 .tpad.right { right: calc(14px + env(safe-area-inset-right)); grid-template-columns: 72px 72px; }
@@ -347,6 +351,12 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
   <label for="tReach"><span class="lab">Досягаемость ракеткой <output id="oReach"></output></span><input type="range" id="tReach" min="0.8" max="1.5" step="0.05"></label>
   <label for="tVt"><span class="lab">Предельная скорость волана <output id="oVt"></output></span><input type="range" id="tVt" min="4.5" max="9" step="0.1"></label>
   <p>У настоящего волана около 6,7 м/с: быстрее он падать не может, сопротивление воздуха растёт как квадрат скорости. Чем выше значение, тем дальше и «тяжелее» летит волан.</p>
+  <div class="tune-ctl only-keys"><span class="lab">Чем бить</span>
+    <div class="seg two ctl-seg" role="radiogroup" aria-label="Чем бить">
+      <button type="button" role="radio" data-ctl="keys" aria-checked="true">Клавиши</button>
+      <button type="button" role="radio" data-ctl="mouse" aria-checked="false">Мышь</button>
+    </div>
+  </div>
   <label class="check" for="tLand"><input type="checkbox" id="tLand"> Показывать, куда упадёт волан</label>
   <label class="check" for="tSound"><input type="checkbox" id="tSound"> Звук ударов</label>
   <button class="btn" id="tReset">Вернуть по умолчанию</button>
@@ -418,6 +428,10 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
       <aside class="sidepanel panel" aria-label="Управление и об игре">
         <div class="keys only-keys">
           <h2 class="panel-title">Управление</h2>
+          <div class="seg two ctl-seg" role="radiogroup" aria-label="Чем бить">
+            <button type="button" role="radio" data-ctl="keys" aria-checked="true">Клавиши</button>
+            <button type="button" role="radio" data-ctl="mouse" aria-checked="false">Мышь</button>
+          </div>
           <div class="caps">
             <div class="cap shot"><b>Q</b><small>клир</small></div>
             <div class="cap"><b>W</b><small>прыжок</small></div>
@@ -426,8 +440,10 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
             <div class="cap shot"><b>S</b><small>смэш</small></div>
             <div class="cap"><b>D</b><small>к сетке</small></div>
           </div>
-          <p>Ниже плеча те же кнопки дают свечу, сетку и драйв.</p>
-          <p>При ударе стрелка — прицел: <kbd>D</kbd> — дальше, под заднюю линию, <kbd>A</kbd> — ближе к сетке и острее. Смэш с <kbd>A</kbd> летит в ноги. <kbd>Esc</kbd> пауза</p>
+          <p class="ctl-keys">Ниже плеча те же кнопки дают свечу, сетку и драйв.</p>
+          <p class="ctl-mouse"><kbd>A</kbd> <kbd>D</kbd> — бег, <kbd>W</kbd> — прыжок. Удар мышью: зажми, потяни в сторону удара и отпусти в момент удара.</p>
+          <p class="ctl-mouse">Вверх — клир, вниз — смэш, коротко — дроп. Чем длиннее рывок, тем сильнее и глубже. Над головой короткий рывок — острый дроп, низом — сетка.</p>
+          <p class="ctl-keys">При ударе стрелка — прицел: <kbd>D</kbd> — дальше, под заднюю линию, <kbd>A</kbd> — ближе к сетке и острее. Смэш с <kbd>A</kbd> летит в ноги. <kbd>Esc</kbd> пауза</p>
         </div>
         <div class="about">
           <button class="btn soft block" id="openRules">Правила</button>
@@ -550,7 +566,7 @@ const SHOULDER = 1.45, HIP = 0.95, JUMP_V = 3.6;
 const VIEW_L = -1.7, VIEW_R = COURT + 1.7, VIEW_TOP = 8.0, VIEW_BOTTOM = -1.05;
 const DZX = 0.055, DZY = 0.11; // косая проекция глубины: дальняя сторона корта выше и правее
 
-const DEFAULTS = { timeScale: 0.65, runSpeed: 5.2, reach: 1.1, vTerm: 6.7, showLanding: false, sound: true };
+const DEFAULTS = { timeScale: 0.65, runSpeed: 5.2, reach: 1.1, vTerm: 6.7, showLanding: false, sound: true, control: 'keys' };
 const cfg = { ...DEFAULTS };
 let K = G / (cfg.vTerm * cfg.vTerm);
 
@@ -752,7 +768,7 @@ function doHit(p, key) {
   const short = weak * 2.6 + p.press * 0.9;
   // куда бить: держишь «назад» — глубже, «к сетке» — короче и острее
   // направление при ударе — это прицел: «от себя» (к задней линии соперника) — дальше, «к себе» — ближе к сетке
-  const place = p.ai ? (p.ai.place || 0) : -Math.sign(p.axis * p.face);
+  const place = p.ai ? (p.ai.place || 0) : p.drag ? p.drag.place : -Math.sign(p.axis * p.face);
   const boost = perfect ? 1.08 : 1;
   // ИИ иногда ошибается сам: чаще на рискованных ударах и при плохом контакте
   const roll = Math.random();
@@ -784,7 +800,7 @@ function doHit(p, key) {
   } else {
     if (cy >= 1.9) {
       v = 'smash';
-      const sp = (air ? 64 : 54) * (0.72 + 0.28 * q) * (d ? d.power : 1) * st.smash * boost * (p.sta < 0.3 ? 0.85 : 1);
+      const sp = (air ? 64 : 54) * (0.72 + 0.28 * q) * (d ? d.power : 1) * st.smash * boost * (p.sta < 0.3 ? 0.85 : 1) * (p.drag ? 0.88 + 0.17 * p.drag.pw : 1);
       const tgt = place > 0 ? 2.4 : place < 0 ? 4.9 : 3.8;
       sol = solveAngle(cx, cy, dir, T(Math.max(1.2, tgt + weak * 1.5 + 1.5 * e())), sp, fail(0.16) ? -rnd(0.05, 0.25) : 0.04 - Math.pow(1 - q, 2) * 0.3 * Math.random() * skill);
     } else {
@@ -793,6 +809,7 @@ function doHit(p, key) {
     }
   }
   if (!sol) { v = cy >= 1.85 ? 'clear' : 'lift'; usedPlace = 0; sol = solveFixed(cx, cy, dir, T(5.5), [50, 40, 32], 85); }
+  p.drag = null;
   launch(p, sol, v, { perfect, place: usedPlace, air, q });
 }
 
@@ -1150,7 +1167,8 @@ function humanAxis(p) {
   if (b.right.some(k => keys.has(k)) || (touch && keys.has('TouchRight'))) a += 1;
   return mirror ? -a : a; // гость видит корт зеркально: «влево» на экране — это +x в мире
 }
-function humanAction(p, act) {
+function humanAction(p, act, aim = null) {
+  if (act !== 'jump') p.drag = aim;
   if (game.mode === 'online' && Net.role === 'guest') { guestAction(p, act); return; }
   if (act === 'jump') p.jumpReq = 0.12;
   else p.shotReq = act;
@@ -1586,7 +1604,84 @@ function render(dt) {
   drawPopups(ctx, dt);
   drawBubbles(ctx, dt);
   ctx.restore();
+  drawDragAim(ctx);
 }
+
+
+/* ========= Удар мышью: зажми, потяни в сторону удара, отпусти в момент удара ========= */
+const drag = { on: false, id: null, x0: 0, y0: 0, x: 0, y: 0 };
+function myPlayer() {
+  if (game.mode === '1p') return P.find(p => !p.ai) || null;
+  if (game.mode === 'online' && Net.connected) return P[Net.myIdx];
+  return null;
+}
+// свой игрок всегда слева, поэтому «вперёд» — вправо по экрану
+function dragShot(dx, dy) {
+  const up = -dy, L = Math.hypot(dx, up), pw = clamp((L - 10) / 150, 0, 1);
+  const a = Math.atan2(up, Math.abs(dx) + 0.001) * 180 / Math.PI;
+  if (pw < 0.22) return { key: 'drop', place: pw < 0.09 ? 1 : 0, pw, a };
+  if (a > 22) return { key: 'clear', place: a < 48 ? 1 : pw > 0.7 ? -1 : 0, pw, a };
+  if (a < -12) return { key: 'smash', place: a < -50 ? 1 : pw > 0.75 ? -1 : 0, pw, a };
+  return { key: 'smash', place: pw > 0.7 ? -1 : 1, pw, a };
+}
+function dragLabel(s) {
+  if (game.state === 'serve') return s.key === 'drop' ? 'Короткая подача' : s.key === 'smash' ? 'Флик' : 'Высокая подача';
+  const high = sh.y >= 1.85;
+  if (s.key === 'drop') return high ? (s.place > 0 ? 'Острый дроп' : 'Дроп') : (s.place > 0 ? 'Тугая сетка' : 'Сетка');
+  if (s.key === 'clear') return high ? (s.place > 0 ? 'Атакующий клир' : s.place < 0 ? 'Глубокий клир' : 'Клир') : 'Свеча';
+  return high ? (s.place > 0 ? 'Смэш в ноги' : s.place < 0 ? 'Смэш на заднюю' : 'Смэш') : 'Драйв';
+}
+function drawDragAim(c) {
+  if (!drag.on) return;
+  const me = myPlayer(); if (!me) return;
+  const dx = drag.x - drag.x0, dy = drag.y - drag.y0, s = dragShot(dx, dy);
+  const col = s.key === 'smash' ? '#ff6a3d' : s.key === 'clear' ? '#3cc3e6' : '#ffd78a';
+  c.save();
+  // след жеста: точка нажатия и линия до курсора
+  c.strokeStyle = 'rgba(232,239,233,0.35)'; c.lineWidth = 1.5; c.setLineDash([4, 5]);
+  c.beginPath(); c.moveTo(drag.x0, drag.y0); c.lineTo(drag.x, drag.y); c.stroke(); c.setLineDash([]);
+  c.fillStyle = 'rgba(232,239,233,0.5)'; c.beginPath(); c.arc(drag.x0, drag.y0, 4, 0, Math.PI * 2); c.fill();
+  // стрелка удара от плеча игрока
+  const L = Math.hypot(dx, dy) || 1, ux = Math.abs(dx) / L || (L < 2 ? 1 : 0), uy = (L < 2 ? 0 : dy / L);
+  const ox = X(me.x), oy = Y(me.y + 1.55), len = sc * (0.5 + 1.7 * s.pw);
+  const tx = ox + ux * len, ty = oy + uy * len;
+  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = Math.max(3, sc * 0.07); c.lineCap = 'round';
+  c.beginPath(); c.moveTo(ox, oy); c.lineTo(tx, ty); c.stroke();
+  const ang = Math.atan2(ty - oy, tx - ox), hs = Math.max(9, sc * 0.2);
+  c.beginPath(); c.moveTo(tx + Math.cos(ang) * hs * 0.6, ty + Math.sin(ang) * hs * 0.6);
+  c.lineTo(tx + Math.cos(ang + 2.5) * hs, ty + Math.sin(ang + 2.5) * hs);
+  c.lineTo(tx + Math.cos(ang - 2.5) * hs, ty + Math.sin(ang - 2.5) * hs); c.closePath(); c.fill();
+  // подпись и сила
+  const fs = Math.max(12, sc * 0.26);
+  c.font = `700 ${fs}px ${FB}`; c.textAlign = 'center'; c.textBaseline = 'bottom';
+  const lx = clamp(ox, 70, W - 70), ly = Math.min(oy, ty) - fs * 0.9;
+  c.fillText(dragLabel(s), lx, ly);
+  const bw = Math.max(70, sc * 1.6), bh = 5;
+  c.fillStyle = 'rgba(232,239,233,0.18)'; roundRect(c, lx - bw / 2, ly + 4, bw, bh, 3); c.fill();
+  c.fillStyle = col; roundRect(c, lx - bw / 2, ly + 4, Math.max(bh, bw * s.pw), bh, 3); c.fill();
+  c.restore();
+}
+canvas.addEventListener('pointerdown', e => {
+  if (cfg.control !== 'mouse' || e.pointerType === 'touch') return;
+  if (e.button !== 0 || !$('menu').hidden || game.paused || game.state === 'over' || !$('rules').hidden) return;
+  if (!myPlayer()) return;
+  unlockAudio();
+  drag.on = true; drag.id = e.pointerId; drag.x0 = drag.x = e.clientX; drag.y0 = drag.y = e.clientY;
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  e.preventDefault();
+});
+canvas.addEventListener('pointermove', e => { if (drag.on && e.pointerId === drag.id) { drag.x = e.clientX; drag.y = e.clientY; } });
+function endDrag(e, fire) {
+  if (!drag.on || e.pointerId !== drag.id) return;
+  drag.on = false;
+  const me = myPlayer();
+  if (!fire || !me || game.paused || game.state === 'over') return;
+  const s = dragShot(drag.x - drag.x0, drag.y - drag.y0);
+  humanAction(me, s.key, { place: s.place, pw: s.pw });
+}
+canvas.addEventListener('pointerup', e => endDrag(e, true));
+canvas.addEventListener('pointercancel', e => endDrag(e, false));
+canvas.addEventListener('contextmenu', e => { if (game.mode !== 'demo' && $('menu').hidden) e.preventDefault(); });
 
 /* ========= Интерфейс ========= */
 function pointStatus() {
@@ -1619,9 +1714,10 @@ function updateHint() {
   const humanServing = game.state === 'serve' && (game.mode === 'online' ? game.server === Net.myIdx : !P[game.server].ai);
   if (humanServing) {
     const b = game.mode === '2p' && game.server === 1 ? ['O', 'U', 'K'] : ['Q', 'E', 'S'];
-    el.innerHTML = `<span class="serve">Подача: <kbd>${b[0]}</kbd> высокая · <kbd>${b[1]}</kbd> короткая · <kbd>${b[2]}</kbd> флик</span>`;
+    el.innerHTML = cfg.control === 'mouse' && game.mode !== '2p' ? '<span class="serve">Подача мышью: потяни вверх — высокая, коротко — короткая, вниз — флик</span>'
+      : `<span class="serve">Подача: <kbd>${b[0]}</kbd> высокая · <kbd>${b[1]}</kbd> короткая · <kbd>${b[2]}</kbd> флик</span>`;
   } else if (game.mode === '1p' || game.mode === 'online') {
-    el.innerHTML = '<span><kbd>A</kbd> <kbd>D</kbd> бег · <kbd>W</kbd> прыжок · <kbd>Q</kbd> клир · <kbd>E</kbd> дроп · <kbd>S</kbd> смэш</span><span><kbd>Esc</kbd> пауза</span>' + (game.mode === 'online' ? '<span class="ping" id="ping"></span>' : '');
+    el.innerHTML = (cfg.control === 'mouse' ? '<span><kbd>A</kbd> <kbd>D</kbd> бег · <kbd>W</kbd> прыжок · удар: зажми мышь, потяни, отпусти</span><span><kbd>Esc</kbd> пауза</span>' : '<span><kbd>A</kbd> <kbd>D</kbd> бег · <kbd>W</kbd> прыжок · <kbd>Q</kbd> клир · <kbd>E</kbd> дроп · <kbd>S</kbd> смэш</span><span><kbd>Esc</kbd> пауза</span>') + (game.mode === 'online' ? '<span class="ping" id="ping"></span>' : '');
   } else {
     el.innerHTML = '<span>Слева: <kbd>Q</kbd> <kbd>E</kbd> <kbd>S</kbd> удары</span><span>Справа: <kbd>O</kbd> <kbd>U</kbd> <kbd>K</kbd> удары</span><span><kbd>Esc</kbd> пауза</span>';
   }
@@ -1686,7 +1782,11 @@ function syncTune() {
   $('tReach').value = cfg.reach; $('oReach').textContent = cfg.reach.toFixed(2).replace('.', ',') + ' м';
   $('tVt').value = cfg.vTerm; $('oVt').textContent = cfg.vTerm.toFixed(1).replace('.', ',') + ' м/с';
   $('tLand').checked = cfg.showLanding; $('tSound').checked = cfg.sound;
+  if (cfg.control !== 'mouse') cfg.control = 'keys';
+  document.body.classList.toggle('ctl-mouse', cfg.control === 'mouse');
+  for (const b of document.querySelectorAll('.ctl-seg button')) b.setAttribute('aria-checked', String(b.dataset.ctl === cfg.control));
 }
+for (const b of document.querySelectorAll('.ctl-seg button')) b.addEventListener('click', () => { cfg.control = b.dataset.ctl; syncTune(); saveCfg(); updateHint(); });
 const sliders = { tTime: 'timeScale', tRun: 'runSpeed', tReach: 'reach', tVt: 'vTerm' };
 for (const id in sliders) $(id).addEventListener('input', e => { cfg[sliders[id]] = parseFloat(e.target.value); syncTune(); saveCfg(); });
 $('tLand').addEventListener('change', e => { cfg.showLanding = e.target.checked; saveCfg(); });
@@ -1710,7 +1810,7 @@ const Net = {
   reset() {
     clearInterval(this.syncIv);
     Object.assign(this, { peerPid: null, peerName: '', peerStyle: null, syncIv: null, role: null, myIdx: 0, transport: null, connected: false, code: '', outN: 0, lastInN: 0, lastSnapN: 0,
-      evSeq: 0, events: [], eventAck: 0, lastEv: 0, shotSeq: 0, shotKey: null, lastShotSeq: 0, posEpoch: -1,
+      evSeq: 0, events: [], eventAck: 0, lastEv: 0, shotSeq: 0, shotKey: null, shotPlace: 9, shotPow: 0, lastShotSeq: 0, posEpoch: -1,
       againSeq: 0, lastAg: 0, lobbyBeat: null, reactSeq: 0, reactI: 0, lastRq: 0, lastReact: 0, rtt: 0, remoteRtt: 0.1, lastTs: 0, lastRecv: 0, lastSend: 0, lastPing: 0, joinTimer: null, savedCfg: null, retries: 0 });
   },
   lagGame() { return clamp(this.remoteRtt || 0.1, 0.02, 0.3) * cfg.timeScale; },
@@ -1896,7 +1996,7 @@ function onGuestInput(m) {
   }
   if (STYLES[m.sy]) { Net.peerStyle = m.sy; p.style = m.sy; }
   p.axis = clamp(+m.ax || 0, -1, 1);
-  if (m.sq > Net.lastShotSeq) { Net.lastShotSeq = m.sq; if (['clear', 'drop', 'smash'].includes(m.sk)) p.shotReq = m.sk; }
+  if (m.sq > Net.lastShotSeq) { Net.lastShotSeq = m.sq; if (['clear', 'drop', 'smash'].includes(m.sk)) { p.shotReq = m.sk; p.drag = [-1, 0, 1].includes(m.sp) ? { place: m.sp, pw: clamp(+m.sw || 0, 0, 1) } : null; } }
   if (m.ag > Net.lastAg) { Net.lastAg = m.ag; if (game.state === 'over') restart(); }
   if (m.rq > Net.lastRq) { Net.lastRq = m.rq; if (m.ri >= 0 && m.ri < REACTS.length) fx('react', 1, m.ri | 0); }
   if (Number.isFinite(m.rtt) && m.rtt > 0) Net.remoteRtt = clamp(m.rtt, 0, 1);
@@ -1907,11 +2007,11 @@ function onGuestInput(m) {
 function sendInput() {
   const me = P[Net.myIdx];
   Net.send({ t: 'in', n: ++Net.outN, x: r3(me.x), y: r3(me.y), vx: r2(me.vx), vy: r2(me.vy), g: me.onGround ? 1 : 0,
-    ep: Net.posEpoch, sq: Net.shotSeq, sk: Net.shotKey, ag: Net.againSeq, rq: Net.reactSeq, ri: Net.reactI, ea: Net.lastEv, ts: performance.now(), rtt: r3(Net.rtt), id: profile.pid, nm: profile.name, sy: profile.style, ax: me.axis });
+    ep: Net.posEpoch, sq: Net.shotSeq, sk: Net.shotKey, sp: Net.shotPlace, sw: Net.shotPow, ag: Net.againSeq, rq: Net.reactSeq, ri: Net.reactI, ea: Net.lastEv, ts: performance.now(), rtt: r3(Net.rtt), id: profile.pid, nm: profile.name, sy: profile.style, ax: me.axis });
 }
 function guestAction(p, act) {
   if (act === 'jump') { p.jumpReq = 0.12; return; }
-  Net.shotSeq++; Net.shotKey = act;
+  Net.shotSeq++; Net.shotKey = act; Net.shotPlace = p.drag ? p.drag.place : 9; Net.shotPow = p.drag ? Math.round(p.drag.pw * 100) / 100 : 0;
   if (game.state === 'serve') { if (game.server === p.idx) p.swing = { key: act, t: 0.06, hit: true, over: false }; }
   else if (!p.swing || p.swing.t > 0.2) p.swing = { key: act, t: 0, hit: false, over: sh.y > p.y + 1.6, lowY: sh.y < 1.1 && !sh.held };
   Net.lastSend = performance.now(); sendInput();
@@ -2728,7 +2828,7 @@ function frame(now) {
 
 // Для отладки и автотестов
 window.__bdm = {
-  game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact,
+  game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact, dragShot, drag, syncTune,
   fastForward(sec) { const n = Math.round(sec / H); for (let i = 0; i < n && game.state !== 'over'; i++) step(H); game.hitstop = 0; },
 };
 
