@@ -261,6 +261,7 @@ body.menu-open .reacts { display: none; }
 #tune input[type="range"] { width: 100%; accent-color: var(--lamp); }
 #tune .check { display: flex; gap: 8px; align-items: center; grid-template-columns: none; }
 #tune .check input { accent-color: var(--lamp); }
+#tune:not(.dev) .dev { display: none; }
 #tune p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
 
 /* Тач-управление */
@@ -540,21 +541,21 @@ body.touch .rules-cta { max-width: none; }
 
 <div id="tools">
   <button id="btnPause" title="Пауза (Esc)" aria-label="Пауза">❚❚</button>
-  <button id="btnTune" title="Настройка ощущений" aria-label="Настройка ощущений" aria-pressed="false">⚙</button>
+  <button id="btnTune" title="Настройки" aria-label="Настройки" aria-pressed="false">⚙</button>
 </div>
 
 <div id="hint"></div>
 
 <aside id="tune" hidden>
-  <h3>Настройка ощущений</h3>
-  <label for="tTime"><span class="lab">Скорость игры <output id="oTime"></output></span><input type="range" id="tTime" min="0.35" max="1" step="0.05"></label>
-  <label for="tRun"><span class="lab">Скорость бега <output id="oRun"></output></span><input type="range" id="tRun" min="3" max="8" step="0.2"></label>
-  <label for="tReach"><span class="lab">Досягаемость ракеткой <output id="oReach"></output></span><input type="range" id="tReach" min="0.8" max="1.5" step="0.05"></label>
-  <label for="tVt"><span class="lab">Предельная скорость волана <output id="oVt"></output></span><input type="range" id="tVt" min="4.5" max="9" step="0.1"></label>
-  <p>У настоящего волана около 6,7 м/с: быстрее он падать не может, сопротивление воздуха растёт как квадрат скорости. Чем выше значение, тем дальше и «тяжелее» летит волан.</p>
+  <h3>Настройки</h3>
+  <label class="dev" for="tTime"><span class="lab">Скорость игры <output id="oTime"></output></span><input type="range" id="tTime" min="0.35" max="1" step="0.05"></label>
+  <label class="dev" for="tRun"><span class="lab">Скорость бега <output id="oRun"></output></span><input type="range" id="tRun" min="3" max="8" step="0.2"></label>
+  <label class="dev" for="tReach"><span class="lab">Досягаемость ракеткой <output id="oReach"></output></span><input type="range" id="tReach" min="0.8" max="1.5" step="0.05"></label>
+  <label class="dev" for="tVt"><span class="lab">Предельная скорость волана <output id="oVt"></output></span><input type="range" id="tVt" min="4.5" max="9" step="0.1"></label>
+  <p class="dev">У настоящего волана около 6,7 м/с: быстрее он падать не может, сопротивление воздуха растёт как квадрат скорости. Чем выше значение, тем дальше и «тяжелее» летит волан.</p>
   <label class="check" for="tLand"><input type="checkbox" id="tLand"> Показывать, куда упадёт волан</label>
   <label class="check" for="tSound"><input type="checkbox" id="tSound"> Звук ударов</label>
-  <button class="btn" id="tReset">Вернуть по умолчанию</button>
+  <button class="btn dev" id="tReset">Вернуть по умолчанию</button>
 </aside>
 
 <section class="overlay" id="menu" aria-label="Меню">
@@ -818,7 +819,10 @@ const SHOULDER = 1.45, HIP = 0.95, JUMP_V = 3.6;
 const VIEW_L = -1.7, VIEW_R = COURT + 1.7, VIEW_TOP = 8.0, VIEW_BOTTOM = -1.05;
 const DZX = 0.055, DZY = 0.11; // косая проекция глубины: дальняя сторона корта выше и правее
 
-const DEFAULTS = { timeScale: 0.65, runSpeed: 5.2, reach: 1.1, vTerm: 6.7, showLanding: false, sound: true };
+const DEFAULTS = { timeScale: 0.75, runSpeed: 5.2, reach: 1.1, vTerm: 6.7, showLanding: false, sound: true };
+// Ползунки темпа и физики — только для настройки баланса (?tune в адресе). У игроков всегда значения по умолчанию:
+// с ними выверен ИИ, а в онлайне снимок хозяина навязывает их гостю.
+const TUNE = /[?&]tune\b/.test(location.search), TUNE_KEYS = ['timeScale', 'runSpeed', 'reach', 'vTerm'];
 const cfg = { ...DEFAULTS };
 let K = G / (cfg.vTerm * cfg.vTerm);
 
@@ -2378,7 +2382,9 @@ for (const b of document.querySelectorAll('#diffSeg button')) {
 document.addEventListener('visibilitychange', () => { if (document.hidden && game.mode !== 'demo' && game.mode !== 'online' && game.state !== 'over' && $('menu').hidden) togglePause(true); });
 
 // Настройки
-function saveCfg() { try { localStorage.setItem('bdm-cfg', JSON.stringify(cfg)); } catch (_) {} }
+function loadCfg() { try { const s = JSON.parse(localStorage.getItem('bdm-cfg') || '{}'); return s && typeof s === 'object' ? s : {}; } catch (_) { return {}; } }
+// Без ?tune пишем только флажки: значения ползунков, взятые у хозяина в онлайне, в память не попадают.
+function saveCfg() { try { localStorage.setItem('bdm-cfg', JSON.stringify(TUNE ? cfg : { ...loadCfg(), showLanding: cfg.showLanding, sound: cfg.sound })); } catch (_) {} }
 function syncTune() {
   K = G / (cfg.vTerm * cfg.vTerm);
   $('tTime').value = cfg.timeScale; $('oTime').textContent = Math.round(cfg.timeScale * 100) + '%';
@@ -3801,7 +3807,8 @@ window.__bdm = {
 };
 
 function start(data) {
-  try { Object.assign(cfg, JSON.parse(localStorage.getItem('bdm-cfg') || '{}')); } catch (_) {}
+  { const s = loadCfg(); for (const k in DEFAULTS) if (k in s && (TUNE || !TUNE_KEYS.includes(k)) && typeof s[k] === typeof DEFAULTS[k]) cfg[k] = s[k]; }
+  $('tune').classList.toggle('dev', TUNE);
   if (data && data.cfg) Object.assign(cfg, data.cfg);
   if (data && data.diff && DIFFS[data.diff]) {
     game.diff = data.diff;
