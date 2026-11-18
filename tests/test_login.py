@@ -91,6 +91,8 @@ with sync_playwright() as pw:
     B.fill('#nameInput', 'Кирилл'); B.click('#nameSubmit'); B.wait_for_timeout(800)
     assert B.evaluate("() => __bdm.profile.pid") == pa, 'второй браузер вошёл в тот же аккаунт'
     assert not B.is_visible('#rules')
+    assert B.is_visible('#news'), 'вошедшему в свой аккаунт вместо правил — «Что нового»'
+    B.click('#nOk')
 
     D = page(4)
     D.fill('#nameInput', 'кирилл'); D.fill('#pinInput', '5555'); D.click('#nameSubmit'); D.wait_for_timeout(400)

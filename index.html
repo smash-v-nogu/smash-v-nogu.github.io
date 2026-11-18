@@ -299,15 +299,15 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
    Меню — как табло на стене зала: чёрные плиты с винтами, цифры светодиодами (шрифт Doto — только цифры и код комнаты),
    таблица — как плашка счёта в трансляции. Сетка: телефон — одна колонка, планшет — две, десктоп — три. */
 #menu { padding: 0; }
-#menu > .menu-inner { position: relative; z-index: 1; width: min(1220px, 100%); margin: 0 auto auto; padding: max(20px, 3.2vh) 22px 28px; display: grid; gap: 18px; }
+#menu > .menu-inner { position: relative; z-index: 1; width: min(1220px, 100%); margin: 0 auto auto; padding: clamp(20px, calc(16vh - 93px), 56px) 22px clamp(28px, calc(8vh - 30px), 56px); display: grid; gap: clamp(18px, calc(12vh - 68px), 44px); }
 .menu-head { display: flex; align-items: center; justify-content: space-between; gap: 14px 24px; flex-wrap: wrap; }
 .brand { margin: 0; display: flex; align-items: center; gap: 12px; }
 .brand-mark { width: 70px; height: 58px; flex: none; display: block; }
 .brand-word { display: grid; }
 .brand-hot { color: var(--p1); }
-.menu-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "ai" "net" "train" "lb" "keys"; }
+.menu-grid { display: grid; gap: clamp(16px, calc(5.6vh - 24px), 28px) clamp(16px, 1.4vw, 22px); grid-template-columns: minmax(0, 1fr); grid-template-areas: "ai" "net" "train" "lb" "keys"; }
 .t-ai { grid-area: ai; } .t-net { grid-area: net; } .t-train { grid-area: train; } .t-lb { grid-area: lb; } .t-keys { grid-area: keys; }
-.tile { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+.tile { position: relative; min-width: 0; display: flex; flex-direction: column; gap: clamp(14px, calc(2.2vh - 2px), 18px); padding: 20px; }
 .tile-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .tile-head h2 { margin: 0; }
 .tile-tag { flex: none; white-space: nowrap; }
@@ -320,7 +320,7 @@ body.menu-open #board, body.menu-open #btnPause, body.menu-open #touch { visibil
 .play-row { display: grid; grid-template-columns: minmax(0, 1fr) 108px; gap: 8px; }
 .len button { padding-left: 2px; padding-right: 2px; }
 .t-train .btn { margin-top: auto; }
-.t-keys { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 16px 28px; --accent: var(--p1); }
+.t-keys { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 16px clamp(28px, 3vw, 44px); --accent: var(--p1); }
 .t-keys .keys { flex: 1 1 460px; display: grid; grid-template-columns: 210px minmax(0, 1fr); align-items: center; gap: 10px 22px; }
 .t-keys .keys h2 { grid-column: 1 / -1; margin: 0; }
 .t-keys .cap { height: 42px; }
@@ -335,7 +335,7 @@ body.touch .rules-cta { max-width: none; }
 @media (min-width: 1080px) {
   .menu-grid { grid-template-columns: 1fr 1fr 1.2fr; grid-template-areas: "ai net lb" "train net lb" "keys keys keys"; }
 }
-.menu-inner, #nameDlg {
+.menu-inner, #nameDlg, #news {
   --plate: linear-gradient(180deg, rgba(14, 21, 23, 0.97), rgba(6, 9, 10, 0.98));
   --plate-edge: #1b2729;
   --screw: #2b3d3f;
@@ -354,7 +354,7 @@ body.touch .rules-cta { max-width: none; }
     var(--plate);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 24px 50px rgba(0, 0, 0, 0.35);
 }
-.tile { border-radius: 18px; padding: 22px 22px 20px; --c: var(--lamp); --c-ink: #221804; }
+.tile { border-radius: 18px; padding: clamp(22px, calc(4.4vh - 10px), 30px) clamp(22px, 1.6vw, 26px) clamp(20px, calc(4.4vh - 12px), 28px); --c: var(--lamp); --c-ink: #221804; }
 .t-ai { --c: var(--p1); --c-ink: var(--p1-ink); }
 .t-net { --c: var(--p2); --c-ink: var(--p2-ink); }
 .t-lb { --c: #7be3a6; }
@@ -411,7 +411,7 @@ body.touch .rules-cta { max-width: none; }
 .lb .foot, .lb .empty { color: var(--muted); }
 .keys-note, .rules-cta small, .t-keys .touch-note { color: var(--muted); }
 .cap { background: linear-gradient(180deg, #1a2729, #121c1e); border-bottom-color: #050809; }
-.me-chip { border-radius: 14px; padding: 8px 16px 8px 8px; border-color: var(--plate-edge); background: var(--plate); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+.me-chip { border-radius: 14px; padding: 8px 16px 8px 8px; min-width: 0; border-color: var(--plate-edge); background: var(--plate); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
 .me-chip:hover { border-color: rgba(255, 215, 138, 0.4); }
 .me-chip .ava { border-radius: 10px; }
 /* окно входа */
@@ -430,7 +430,11 @@ body.touch .rules-cta { max-width: none; }
 @media (max-width: 560px) {
   #menu > .menu-inner { padding: 18px 14px 24px; gap: 14px; }
   .menu-grid { gap: 12px; }
-  .me-chip { flex: 1 1 100%; }
+  .head-side { flex: 1 1 100%; flex-direction: column; gap: 8px; }
+  .me-chip { order: -1; }
+  .news-chip { padding: 11px 14px; }
+  .news-chip .nc-txt { display: flex; align-items: baseline; gap: 10px; }
+  .news-chip::after { content: "›"; margin-left: auto; color: var(--muted); font-size: 18px; line-height: 1; }
   .brand-mark { width: 58px; height: 48px; }
   .brand-word { font-size: 24px; }
   .tile { padding: 20px 18px 18px; }
@@ -443,6 +447,64 @@ body.touch .rules-cta { max-width: none; }
 }
 @media (max-width: 480px) {
   .lb td:nth-child(4) { border-radius: 0 9px 9px 0; padding-right: 10px; }
+}
+/* Таблица: все игроки, лишние строки прокручиваются внутри плиты; шапка и твоя строка прилипают к краям */
+.lb-scroll { min-height: 0; max-height: 336px; overflow-y: auto; overflow-x: hidden; margin: 0 -6px; padding: 0 6px; overscroll-behavior: auto; scrollbar-width: thin; scrollbar-color: #2b3d3f transparent; }
+.lb-scroll thead th { position: sticky; top: 0; z-index: 2; background: #0a1012; box-shadow: 0 -6px 0 #0a1012; }
+.lb-scroll tr.me td { position: sticky; top: 21px; bottom: 0; z-index: 1; box-shadow: 0 -6px 0 #0a1012, 0 6px 0 #0a1012; }
+.lb-scroll tr.me td.rank, .lb-scroll tr.me td:last-child { box-shadow: inset 0 0 0 1px var(--plate-edge), 0 -6px 0 #0a1012, 0 6px 0 #0a1012; }
+.lb-scroll tr.me.p1 td:first-child { box-shadow: inset 0 0 0 1px rgba(245, 196, 81, 0.6), 0 -6px 0 #0a1012, 0 6px 0 #0a1012; }
+/* десктоп: плита таблицы растянута соседними плитами и не растягивает их сама, строки уходят в скролл */
+@media (min-width: 1080px) {
+  .t-lb { contain: size; }
+  .lb-scroll { flex: 0 1 auto; max-height: none; }
+}
+
+/* «Что нового»: фишка в шапке и окно со списком обновлений */
+.head-side { display: flex; align-items: stretch; gap: 12px; min-width: 0; }
+.news-chip { display: flex; align-items: center; gap: 12px; padding: 8px 18px 8px 16px; border-radius: 14px; border: 1px solid var(--plate-edge); background: var(--plate); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); text-align: left; transition: border-color 0.15s, box-shadow 0.15s; }
+.news-chip:hover { border-color: rgba(255, 215, 138, 0.4); }
+.news-chip .lamp { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #243436; }
+.news-chip.unseen { border-color: rgba(255, 215, 138, 0.45); box-shadow: inset 0 0 18px rgba(255, 215, 138, 0.08), 0 0 22px rgba(255, 215, 138, 0.08); }
+.news-chip.unseen .lamp { background: var(--lamp); box-shadow: 0 0 10px var(--lamp); animation: lampPulse 1.6s ease-in-out infinite; }
+@keyframes lampPulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .news-chip.unseen .lamp { animation: none; } }
+.nc-txt { display: grid; gap: 3px; }
+.nc-txt b { font: 700 11px var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
+.nc-txt small { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.nc-new { padding: 3px 7px; border-radius: 999px; background: var(--lamp); color: #221804; font: 700 9px var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.nc-new[hidden] { display: none; }
+.news-chip[hidden] { display: none; }
+#news { z-index: 12; background: rgba(4, 7, 8, 0.8); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.news-card:focus { outline: none; }
+.news-card { width: min(640px, 100%); padding: 18px 20px 20px; border-radius: 22px; border: 1px solid var(--plate-edge); background: var(--plate); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 30px 80px rgba(0, 0, 0, 0.5); display: grid; gap: 14px; }
+.news-card h2 { margin: 0; font: 700 22px var(--font-display); letter-spacing: -0.01em; }
+.news-sub { margin: -6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.news-list { display: grid; gap: 18px; }
+.nrel { display: grid; gap: 8px; }
+.nrel h3 { margin: 0; display: flex; align-items: center; gap: 10px; font: 700 11px var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.nrel h3 .led { font: 900 20px/1 var(--font-led); letter-spacing: 0.06em; color: var(--lamp); text-shadow: 0 0 10px rgba(255, 215, 138, 0.5); }
+.nrel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.nitem { width: 100%; display: grid; grid-template-columns: 86px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 14px 12px 12px; border-radius: 12px; border: 1px solid var(--plate-edge); background: #0b1214; text-align: left; transition: border-color 0.15s, box-shadow 0.15s; }
+.nitem:hover { border-color: rgba(255, 215, 138, 0.45); box-shadow: inset 0 0 18px rgba(255, 215, 138, 0.06); }
+.ntag { justify-self: start; padding: 4px 7px; border-radius: 6px; border: 1px solid var(--plate-edge); background: var(--well); color: var(--muted); font: 700 9px var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.nitem.has-demo .ntag { color: var(--p1); border-color: rgba(255, 106, 61, 0.35); }
+.nbody { display: grid; gap: 3px; min-width: 0; }
+.nbody b { font-weight: 600; font-size: 15px; color: var(--ink); }
+.nbody small { font-size: 13px; line-height: 1.4; color: var(--muted); }
+.ngo { display: flex; align-items: center; gap: 6px; color: var(--muted); font: 700 9.5px var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.nitem.has-demo .ngo { color: var(--lamp); }
+.ngo i { font-style: normal; font-size: 12px; }
+.news-foot { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.news-foot .btn { padding: 12px 18px; }
+.news-foot .btn[hidden] { display: none; }
+#news .btn { border-radius: 11px; font: 700 12px var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; }
+#news .btn.primary { background: var(--lamp); border-color: var(--lamp); color: #221804; }
+@media (max-width: 560px) {
+  .news-card { padding: 16px 14px 16px; }
+  .nitem { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; }
+  .ntag { grid-column: 1 / -1; }
+  .ngo span { display: none; }
 }
 </style>
 </head>
@@ -482,11 +544,18 @@ body.touch .rules-cta { max-width: none; }
         <svg class="brand-mark" viewBox="3 10 58 48" aria-hidden="true"><use href="#logoKeda"/></svg>
         <span class="brand-word" aria-hidden="true"><span>Смэш мне</span> <span class="brand-hot">в ногу</span></span>
       </h1>
-      <button class="me-chip" id="editName" title="Профиль: имя и стиль игры">
-        <span class="ava" id="meAva" aria-hidden="true">?</span>
-        <span class="me-txt"><b id="meName">…</b><small id="meBest">рекордов пока нет</small></span>
-        <span class="pen" aria-hidden="true">✎</span>
-      </button>
+      <div class="head-side">
+        <button class="news-chip" id="newsBtn" aria-haspopup="dialog" title="Что добавилось в игре">
+          <i class="lamp" aria-hidden="true"></i>
+          <span class="nc-txt"><b>Что нового</b><small id="newsDate"></small></span>
+          <span class="nc-new" id="newsNew" hidden>новое</span>
+        </button>
+        <button class="me-chip" id="editName" title="Профиль: имя и стиль игры">
+          <span class="ava" id="meAva" aria-hidden="true">?</span>
+          <span class="me-txt"><b id="meName">…</b><small id="meBest">рекордов пока нет</small></span>
+          <span class="pen" aria-hidden="true">✎</span>
+        </button>
+      </div>
     </header>
 
     <div class="menu-grid">
@@ -545,10 +614,10 @@ body.touch .rules-cta { max-width: none; }
 
       <section class="tile t-lb lb" aria-labelledby="hLb">
         <div class="tile-head"><h2 id="hLb">Таблица</h2></div>
-        <table>
+        <div class="lb-scroll" id="lbScroll"><table>
           <thead><tr><th class="l">#</th><th class="l">Игрок</th><th title="Победы – поражения в играх с друзьями">Друзья</th><th title="Победы – поражения против ИИ">ИИ</th><th>Смэш</th></tr></thead>
           <tbody id="lbBody"></tbody>
-        </table>
+        </table></div>
         <p class="empty" id="lbEmpty">Пока пусто. Сыграй партию, и ты появишься здесь.</p>
         <p class="foot" id="lbFoot">Результаты хранятся у каждого и обмениваются, когда вы играете по сети</p>
       </section>
@@ -623,11 +692,27 @@ body.touch .rules-cta { max-width: none; }
   </form>
 </section>
 
+<section class="overlay" id="news" hidden aria-label="Что нового">
+  <div class="news-card" id="nCard" role="dialog" aria-modal="true" aria-labelledby="nTitle" tabindex="-1">
+    <div class="rules-top">
+      <span class="rstep" id="nKick">Что нового</span>
+      <button class="rclose" id="nClose" aria-label="Закрыть">✕</button>
+    </div>
+    <h2 id="nTitle">Что нового</h2>
+    <p class="news-sub" id="nSub">Нажми на пункт: там короткий рассказ, а удары и механики — с анимацией</p>
+    <div class="news-list" id="nList"></div>
+    <div class="news-foot">
+      <button class="btn" id="nAll" hidden>Все обновления</button>
+      <button class="btn primary" id="nOk">Понятно</button>
+    </div>
+  </div>
+</section>
+
 <section class="overlay" id="rules" hidden aria-label="Правила">
   <div class="rules-card" role="dialog" aria-labelledby="rTitle">
     <div class="rules-top">
       <span class="rstep" id="rStep">1 / 11</span>
-      <button class="rclose" id="rClose" aria-label="Закрыть правила">✕</button>
+      <button class="rclose" id="rClose" aria-label="Закрыть">✕</button>
     </div>
     <div class="rdemo" id="rDemo">
       <canvas id="rCanvas" aria-hidden="true"></canvas>
@@ -1523,7 +1608,7 @@ function humanAction(p, act) {
 
 window.addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
-  if (!$('rules').hidden) return;
+  if (!$('rules').hidden || !$('news').hidden) return;
   unlockAudio();
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   const inGame = game.mode !== 'demo' && $('menu').hidden;
@@ -1622,6 +1707,7 @@ function resize() {
 function poly(c, pts) { c.beginPath(); pts.forEach(([x, y, z], i) => { const sx = X(x, z), sy = Y(y, z); i ? c.lineTo(sx, sy) : c.moveTo(sx, sy); }); c.closePath(); }
 
 function buildBackground() {
+  if (!(sc > 0)) return; // окно нулевого размера (фоновая вкладка, панель ещё не открылась): радиусы ушли бы в минус и оборвали start(); фон соберёт следующий resize
   bg = document.createElement('canvas');
   bg.width = canvas.width; bg.height = canvas.height;
   const c = bg.getContext('2d');
@@ -2683,9 +2769,7 @@ const CUP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="current
 function renderStandings() {
   const body = $('lbBody'); if (!body) return;
   const rows = standings();
-  let shown = rows.slice(0, 6);
-  const mine = rows.findIndex(r => r.pid === profile.pid);
-  if (mine >= 6) shown = rows.slice(0, 5).concat([rows[mine]]);
+  const shown = rows; // все игроки: лишние строки прокручиваются внутри плиты (.lb-scroll), твоя строка прилипает к краю
   body.textContent = '';
   for (const r of shown) {
     const tr = document.createElement('tr');
@@ -2743,7 +2827,7 @@ function nameTaken(n) {
 }
 function nameError(msg) { $('nameErr').textContent = msg; $('nameErr').hidden = !msg; }
 $('pinInput').addEventListener('input', e => { const v = e.target.value.replace(/\D/g, '').slice(0, 4); if (v !== e.target.value) e.target.value = v; nameError(''); });
-$('nameLater').addEventListener('click', () => { $('nameDlg').hidden = true; });
+$('nameLater').addEventListener('click', () => { $('nameDlg').hidden = true; newsAfterName(); });
 $('nameInput').addEventListener('input', e => { $('nameAva').textContent = (cleanName(e.target.value) || '?').charAt(0).toUpperCase(); $('nameWarn').hidden = dlgMode !== 'new' || !nameTaken(e.target.value); nameError(''); });
 let pickStyle = profile.style;
 function syncStyleSeg() { for (const o of document.querySelectorAll('#styleSeg button')) o.setAttribute('aria-checked', String(o.dataset.style === pickStyle)); }
@@ -2833,9 +2917,10 @@ $('nameForm').addEventListener('submit', async e => {
   $('nameDlg').hidden = true;
   renderHello(); renderStandings(); cloudSync();
   if (game.mode !== 'demo') { P[localIdx()].name = n; updateBoard(); }
-  if (firstTime && !welcomeBack) setTimeout(() => openRules(0), 220); // новичку сразу показываем, как играть
+  if (firstTime && !welcomeBack) { markNewsSeen(); newsPending = false; setTimeout(() => openRules(0), 220); } // новичку сразу показываем, как играть, а не что нового
+  else newsAfterName();
 });
-$('nameDlg').addEventListener('keydown', e => { if (e.key === 'Escape' && profile.name) $('nameDlg').hidden = true; });
+$('nameDlg').addEventListener('keydown', e => { if (e.key === 'Escape' && profile.name) { $('nameDlg').hidden = true; newsAfterName(); } });
 $('editName').addEventListener('click', openNameDlg);
 // Обмен записями при подключении: небольшими пачками, по кругу несколько раз (канал может терять сообщения)
 function startSync() {
@@ -3071,6 +3156,7 @@ function rShot(kind, cx, cy) {
     case 'drop': sol = solveFlat(cx, cy, 1, T(1.3), 30, 0.14, -40, 65); break;
     case 'smash': sol = solveAngle(cx, cy, 1, T(3.6), 62, 0.04); break;
     case 'smashFeet': sol = solveAngle(cx, cy, 1, T(2.4), 64, 0.04); break;
+    case 'smashCharged': sol = solveAngle(cx, cy, 1, T(3.3), 62 * CHARGE_SPEED, 0.04); break;
     case 'lift': sol = solveFixed(cx, cy, 1, T(5.9), [58, 52, 46, 40, 64, 70, 76], 80); break;
     case 'net': sol = solveFlat(cx, cy, 1, T(0.5), 12, 0.03, -10, 85); break;
     case 'serveHigh': sol = solveFixed(cx, cy, 1, T(6.35), [64, 60, 56, 52, 48], 75); break;
@@ -3083,7 +3169,8 @@ function rShot(kind, cx, cy) {
 // Сценарий одного удара: подлёт, замах, полёт, приземление
 function mkShot(o) {
   const tr = rShot(o.shot, o.cx, o.cy);
-  return { ...o, ...tr, hit: o.hit || 1.05, total: (o.hit || 1.05) + tr.flight / 0.8 + 1.2 };
+  const play = o.play || 0.8; // скорость показа полёта: 0,8 — как в правилах, больше — быстрее
+  return { ...o, ...tr, play, hit: o.hit || 1.05, total: (o.hit || 1.05) + tr.flight / play + (o.tail ?? 1.2) };
 }
 function buildDemo(kind) {
   const deep = { px: 1.25, cx: 1.55, cy: 2.35 };
@@ -3103,7 +3190,15 @@ function buildDemo(kind) {
     case 'serve': return { list: [
       mkShot({ px: NET - SHORT - 1.25, cx: NET - SHORT - 0.83, cy: 0.95, serve: true, shot: 'serveHigh', key: 'Q', label: 'Высокая подача', hit: 0.8 }),
       mkShot({ px: NET - SHORT - 1.25, cx: NET - SHORT - 0.83, cy: 0.95, serve: true, shot: 'serveShort', key: 'E', label: 'Короткая подача', hit: 0.8 }) ] };
-    case 'score': return { score: true, list: [mkShot({ px: 3.1, cx: 3.4, cy: 2.95, jump: true, shot: 'smash', key: 'S', pre: 'W', label: 'Смэш', over: true })] };
+    case 'score': return { score: { a: '14', b: '12', w: '15' }, list: [mkShot({ px: 3.1, cx: 3.4, cy: 2.95, jump: true, shot: 'smash', key: 'S', pre: 'W', label: 'Смэш', over: true })] };
+    case 'score7': return { score: { a: '6', b: '4', w: '7' }, list: [mkShot({ px: 3.1, cx: 3.4, cy: 2.95, jump: true, shot: 'smash', key: 'S', pre: 'W', label: 'Смэш', over: true })] };
+    // заряд: три чистых удара подряд, четвёртый — заряженный смэш в ноги
+    case 'charge': return { charge: true, list: [
+      mkShot({ ...deep, shot: 'clearPerfect', key: 'Q', label: 'Чисто · 1', over: true, sweet: true, hit: 0.75, play: 1.7, tail: 0.35 }),
+      mkShot({ ...deep, shot: 'clearPerfect', key: 'Q', label: 'Чисто · 2', over: true, sweet: true, hit: 0.75, play: 1.7, tail: 0.35 }),
+      mkShot({ ...deep, shot: 'clearPerfect', key: 'Q', label: 'Чисто · 3', over: true, sweet: true, hit: 0.75, play: 1.7, tail: 0.35 }),
+      mkShot({ px: 3.1, cx: 3.4, cy: 2.95, jump: true, shot: 'smashCharged', key: 'S', pre: 'W', label: 'Заряженный смэш', over: true, sweet: true, feet: true, hit: 1.25, tail: 1.6 }) ] };
+    case 'feet': return { list: [mkShot({ px: 3.1, cx: 3.4, cy: 2.95, jump: true, shot: 'smashFeet', key: 'S', pre: 'W', hold: 'A', label: 'A + S · смэш в ноги', over: true, feet: true, opp: 2.45, tail: 1.6 })] };
     case 'move': return { move: true, total: 3.6 };
     case 'stamina': return { stamina: true, total: 5.4, smash: mkShot({ px: 3.1, cx: 3.4, cy: 2.95, jump: true, shot: 'smash', key: 'S', pre: 'W', label: 'Смэш', over: true, hit: 2.9 }) };
   }
@@ -3138,6 +3233,14 @@ function rDrawPlayer(c, x, y, arm, o = {}) {
   c.strokeStyle = '#cfd8d3'; c.lineWidth = Math.max(1.2, rS * 0.03); c.beginPath(); c.moveTo(RX(hx), RY(hy)); c.lineTo(RX(hx + dx * 0.36), RY(hy + dy * 0.36)); c.stroke();
   c.save(); c.translate(RX(hx + dx * 0.55), RY(hy + dy * 0.55)); c.rotate(Math.atan2(-dy, dx));
   c.beginPath(); c.ellipse(0, 0, rS * 0.17, rS * 0.11, 0, 0, Math.PI * 2); c.strokeStyle = '#e8efe9'; c.lineWidth = Math.max(1.4, rS * 0.035); c.stroke(); c.restore();
+  if (o.dots !== undefined) { // серия «Чисто»: три точки, полная — заряд
+    const r = Math.max(2.5, rS * 0.06), full = o.dots >= 3, glow = full ? 0.6 + 0.4 * Math.sin(performance.now() / 140) : 0;
+    for (let i = 0; i < 3; i++) {
+      c.fillStyle = i < o.dots ? COLORS.lamp : 'rgba(232,239,233,0.16)';
+      if (full) { c.shadowColor = COLORS.lamp; c.shadowBlur = 10 * glow; }
+      c.beginPath(); c.arc(RX(x) + (i - 1) * r * 3.2, RY(0) + rS * 0.34, r, 0, Math.PI * 2); c.fill(); c.shadowBlur = 0;
+    }
+  }
   if (o.sta !== undefined) {
     const w = rS * 0.8, bx = RX(x) - w / 2, by = RY(0) + rS * 0.16, hh = Math.max(3, rS * 0.055);
     c.fillStyle = 'rgba(232,239,233,0.12)'; roundRect(c, bx, by, w, hh, hh / 2); c.fill();
@@ -3173,9 +3276,9 @@ function rShotFrame(c, sd, t, extra = {}) {
   const px = sd.lunge ? sd.px : sd.px;
   let arm = swingArm((t - (H0 - 0.1)) / 0.36, !!sd.over);
   if (arm === null || t < H0 - 0.1) arm = sd.low ? -60 : sd.serve ? -70 : 112;
-  rDrawPlayer(c, px, py, arm, { lunge: ln, sta: extra.sta });
+  rDrawPlayer(c, px, py, arm, { lunge: ln, sta: extra.sta, dots: extra.dots });
   // соперник-призрак
-  rDrawPlayer(c, NET + 3.3 + (extra.oppShift || 0), 0, 108, { color: COLORS.p2, alpha: 0.35, face: -1 });
+  rDrawPlayer(c, NET + (sd.opp ?? 3.3) + (extra.oppShift || 0), 0, 108, { color: COLORS.p2, alpha: 0.35, face: -1 });
   // зона чистого удара
   if (sd.sweet || sd.early) {
     const pulse = 0.5 + 0.5 * Math.sin(t * 8);
@@ -3187,7 +3290,12 @@ function rShotFrame(c, sd, t, extra = {}) {
   // волан до удара
   if (t < H0) {
     if (sd.serve) rDrawShuttle(c, sd.cx, sd.cy, -Math.PI / 2);
-    else {
+    else if (sd.from) { // подлёт с половины соперника по дуге через сетку: from = [x0, y0, контрольная x, контрольная y]
+      const k = clamp(t / H0, 0, 1), [x0, y0, qx, qy] = sd.from, u = 1 - k;
+      const bx = u * u * x0 + 2 * u * k * qx + k * k * sd.cx, by = u * u * y0 + 2 * u * k * qy + k * k * sd.cy;
+      const tx = 2 * u * (qx - x0) + 2 * k * (sd.cx - qx), ty = 2 * u * (qy - y0) + 2 * k * (sd.cy - qy);
+      rDrawShuttle(c, bx, by, Math.atan2(ty, tx));
+    } else {
       const k = clamp(t / H0, 0, 1);
       const sx = sd.low ? sd.cx + 2.6 * (1 - k) : sd.cx + 0.25 * (1 - k), sy = sd.low ? sd.cy + 1.4 * (1 - k) * (1 - k) + 1.2 * (1 - k) * k * 0.6 : sd.cy + 2.8 * (1 - ease(k));
       rDrawShuttle(c, sx, sy, sd.low ? Math.PI * 1.15 : -Math.PI / 2);
@@ -3195,7 +3303,7 @@ function rShotFrame(c, sd, t, extra = {}) {
     return keys;
   }
   // полёт по настоящей траектории
-  const g = (t - H0) * 0.8, idx = Math.min(sd.pts.length - 1, Math.floor(g * 120));
+  const g = (t - H0) * sd.play, idx = Math.min(sd.pts.length - 1, Math.floor(g * 120));
   c.strokeStyle = 'rgba(255,215,138,0.5)'; c.lineWidth = 2; c.beginPath();
   for (let i = 0; i <= idx; i += 2) { const q = sd.pts[i]; i ? c.lineTo(RX(q.x), RY(q.y)) : c.moveTo(RX(q.x), RY(q.y)); }
   c.stroke();
@@ -3208,6 +3316,7 @@ function rShotFrame(c, sd, t, extra = {}) {
     c.strokeStyle = inC ? '#7be3a6' : '#ff7a6a'; c.lineWidth = 2;
     c.beginPath(); c.ellipse(RX(sd.land), RY(0) + 0.1 * rS, rS * 0.2, rS * 0.07, 0, 0, Math.PI * 2); c.stroke();
     if (sd.line) { c.fillStyle = '#7be3a6'; c.fillRect(RX(sd.line) - 2, RY(0), 4, 0.36 * rS); }
+    if (sd.feet && inC) rLabel(c, 'В ногу!', sd.land, 2.7, COLORS.lamp, 0.34);
     rDrawShuttle(c, sd.land, 0.03, 0);
   }
   return keys;
@@ -3215,9 +3324,14 @@ function rShotFrame(c, sd, t, extra = {}) {
 function rFrame(now) {
   if ($('rules').hidden) return;
   rs_.raf = requestAnimationFrame(rFrame);
-  const st = RULE_STEPS[rs_.i], dm = rs_.demo;
+  const dm = rs_.demo;
   if (!dm) return;
   if (!rW) rResize();
+  if (rW) { // масштаб: весь корт или приближение к месту действия (dm.view: центр x, ширина и высота кадра в метрах)
+    const v = dm.view;
+    rS = v ? Math.min(rW / v.w, rH / v.h) : Math.min(rW / 15.8, rH / 7.9);
+    rOx = v ? rW / 2 - v.x * rS : (rW - 15.8 * rS) / 2 + 1.2 * rS; rFloor = rH - 0.62 * rS;
+  }
   const c = rcx; c.setTransform(rDpr, 0, 0, rDpr, 0, 0);
   rDrawBase(c);
   let t = (now - rs_.t0) / 1000, keys = new Set();
@@ -3226,14 +3340,17 @@ function rFrame(now) {
     let tt = t % tot, k = 0;
     while (tt > dm.list[k].total) { tt -= dm.list[k].total; k++; }
     const sd = dm.list[k];
-    keys = rShotFrame(c, sd, tt);
+    // заряд: после каждого чистого удара точка загорается, заряженный смэш их тратит
+    const dots = dm.charge ? (k < 3 ? k + (tt >= sd.hit ? 1 : 0) : tt >= sd.hit ? 0 : 3) : undefined;
+    keys = rShotFrame(c, sd, tt, { dots });
+    if (dm.charge && dots === 3) rLabel(c, 'Заряд!', sd.px + 0.1, 3.55, COLORS.lamp, 0.3);
     if (dm.score) {
       const after = tt > sd.hit + sd.flight / 0.8;
       c.fillStyle = 'rgba(5,9,10,0.85)'; roundRect(c, rW / 2 - rS * 2, rS * 0.3, rS * 4, rS * 1.1, 10); c.fill();
       c.textAlign = 'center'; c.font = `900 ${rS * 0.5}px ${FD}`;
-      c.fillStyle = COLORS.p1; c.fillText(after ? '15' : '14', rW / 2 - rS * 0.75, rS * 1.0);
+      c.fillStyle = COLORS.p1; c.fillText(after ? dm.score.w : dm.score.a, rW / 2 - rS * 0.75, rS * 1.0);
       c.fillStyle = COLORS.muted; c.fillText(':', rW / 2, rS * 1.0);
-      c.fillStyle = COLORS.p2; c.fillText('12', rW / 2 + rS * 0.75, rS * 1.0);
+      c.fillStyle = COLORS.p2; c.fillText(dm.score.b, rW / 2 + rS * 0.75, rS * 1.0);
       c.font = `700 ${Math.max(10, rS * 0.18)}px ${FD}`; c.fillStyle = COLORS.lamp;
       c.fillText(after ? 'ПАРТИЯ' : 'ГЕЙМБОЛ', rW / 2, rS * 1.32);
       if (after) rLabel(c, 'В корте · очко', sd.land, 0.7, '#7be3a6', 0.24);
@@ -3278,10 +3395,12 @@ function rFrame(now) {
     }
   }
 }
+// Колода шагов: правила или пункты одного обновления из «Что нового» (тот же формат, что RULE_STEPS)
+let deck = RULE_STEPS, deckTag = '', deckBack = null;
 function rShow(i) {
-  rs_.i = clamp(i, 0, RULE_STEPS.length - 1);
-  const st = RULE_STEPS[rs_.i], touch = document.body.classList.contains('touch');
-  $('rStep').textContent = (rs_.i + 1) + ' / ' + RULE_STEPS.length;
+  rs_.i = clamp(i, 0, deck.length - 1);
+  const st = deck[rs_.i], touch = document.body.classList.contains('touch');
+  $('rStep').textContent = (deckTag ? deckTag + ' · ' : '') + (rs_.i + 1) + ' / ' + deck.length;
   $('rTitle').textContent = st.t;
   let html = st.d;
   if (touch) html = html.replace(/<kbd>([QWEASD])<\/kbd>/g, (m, k) => '<kbd>' + KEY_INFO[k][2] + '</kbd>');
@@ -3298,31 +3417,138 @@ function rShow(i) {
   rs_.demo = st.demo ? buildDemo(st.demo) : null;
   rs_.t0 = performance.now();
   $('rPrev').disabled = rs_.i === 0;
-  $('rNext').textContent = rs_.i === RULE_STEPS.length - 1 ? 'Понятно' : 'Далее';
+  $('rNext').textContent = rs_.i < deck.length - 1 ? 'Далее' : deckBack ? 'К списку' : 'Понятно';
   for (const [j, d] of [...$('rDots').children].entries()) d.setAttribute('aria-current', String(j === rs_.i));
   requestAnimationFrame(() => { rResize(); });
 }
-function openRules(i = 0) {
+function openDeck(steps, i, tag, back, label) {
+  deck = steps; deckTag = tag || ''; deckBack = back || null;
+  $('rules').setAttribute('aria-label', label || 'Правила');
   $('rules').hidden = false;
-  const dots = $('rDots');
-  if (!dots.children.length) RULE_STEPS.forEach((st, j) => { const b = document.createElement('button'); b.setAttribute('aria-label', 'Шаг ' + (j + 1) + ': ' + st.t); b.addEventListener('click', () => rShow(j)); dots.appendChild(b); });
+  const dots = $('rDots'); dots.textContent = '';
+  deck.forEach((st, j) => { const b = document.createElement('button'); b.setAttribute('aria-label', 'Шаг ' + (j + 1) + ': ' + st.t); b.addEventListener('click', () => rShow(j)); dots.appendChild(b); });
   rShow(i);
   cancelAnimationFrame(rs_.raf); rs_.raf = requestAnimationFrame(rFrame);
   $('rNext').focus();
 }
-function closeRules() { $('rules').hidden = true; cancelAnimationFrame(rs_.raf); }
+function openRules(i = 0) { openDeck(RULE_STEPS, i, '', null, 'Правила'); }
+function closeRules() { $('rules').hidden = true; cancelAnimationFrame(rs_.raf); const b = deckBack; deckBack = null; if (b) b(); }
 $('openRules').addEventListener('click', () => openRules(0));
 $('pauseRules').addEventListener('click', () => openRules(0));
 $('rClose').addEventListener('click', closeRules);
 $('rPrev').addEventListener('click', () => rShow(rs_.i - 1));
-$('rNext').addEventListener('click', () => { if (rs_.i === RULE_STEPS.length - 1) closeRules(); else rShow(rs_.i + 1); });
+$('rNext').addEventListener('click', () => { if (rs_.i === deck.length - 1) closeRules(); else rShow(rs_.i + 1); });
 $('rules').addEventListener('click', e => { if (e.target === $('rules')) closeRules(); });
 $('rules').addEventListener('keydown', e => {
   if (e.key === 'Escape') { e.stopPropagation(); closeRules(); }
-  else if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); if (rs_.i < RULE_STEPS.length - 1) rShow(rs_.i + 1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); if (rs_.i < deck.length - 1) rShow(rs_.i + 1); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); rShow(rs_.i - 1); }
 });
 window.addEventListener('resize', () => { if (!$('rules').hidden) rResize(); });
+
+/* ========= Что нового: список обновлений =========
+   Новое обновление — новый объект В НАЧАЛО NEWS. id — дата выкатки ГГГГ-ММ-ДД, второе за тот же день — с буквой (2026-11-18b):
+   id сравниваются как строки, по ним игрок видит «новое».
+   Пункт: tag — ярлык, t — заголовок, s — одна строка в списке, d — текст (HTML, как в правилах),
+   demo — анимация из buildDemo (для ударов и механик), keys — клавиши над анимацией.
+   Кто вернулся и не видел свежее обновление, получает окно при входе в меню; новичку вместо него — правила. */
+const NEWS = [
+  { id: '2026-11-18', date: '18 ноября', items: [
+    { tag: 'ИИ', t: 'Уровень «Умный»', s: 'Запоминает твои привычки и заранее встаёт туда, куда ты бьёшь',
+      d: '<p>Бегает и бьёт как сложный, но следит, чем ты отвечаешь в каждой ситуации. Когда уверен, заранее смещается туда, куда ты ударишь, и показывает «Читаю тебя».</p><p>Против однообразной игры он заметно сильнее сложного. Меняй удары — и прогноз ему не поможет. Память о тебе переходит в следующую партию.</p>' },
+    { tag: 'Онлайн', t: 'Связь в онлайне', s: 'Если напрямую не соединяется — идём через ретранслятор; «призрак» не занимает комнату',
+      d: '<p>Если сети двух игроков не пускают прямое соединение — мобильный интернет, VPN, рабочий Wi‑Fi, — игра соединяется через ретранслятор, а не висит на «Подключаемся…». Не получилось войти — игра скажет, где застряло.</p><p>Друг, который начал входить и пропал (открыл ссылку в Telegram, потом в Safari), больше не занимает место в комнате.</p>' },
+    { tag: 'Меню', t: 'Таблица — все игроки', s: 'Видно всех, а не только пятёрку лучших; твоя строка всегда на виду',
+      d: '<p>Раньше таблица показывала пятёрку лучших и тебя, остальных видно не было. Теперь в ней все игроки: список прокручивается внутри плиты, а твоя строка прилипает к краю — себя видно без прокрутки.</p><p>В меню стало просторнее, а наверху появилась кнопка «Что нового» — здесь будут все обновления.</p>' },
+    { tag: 'Телефон', t: 'Удобнее на телефоне', s: 'Корт не увеличивается от двойного тапа, кнопки бега крупнее',
+      d: '<p>Двойной тап и щипок больше не увеличивают страницу посреди розыгрыша. Кнопки ◀ ▶ крупнее кнопок ударов — по ним проще попадать не глядя.</p>' },
+    { tag: 'Реакции', t: 'Новые реакции', s: '«Ахах» и «лол», а ИИ смеётся над глупой ошибкой',
+      d: '<p>Реакций теперь пять, на клавишах <kbd>1</kbd>–<kbd>5</kbd>. ИИ иногда смеётся, если ты глупо ошибся: в сетку, подача не долетела, аут далеко за линией.</p>' },
+  ] },
+  { id: '2026-11-17', date: '17 ноября', items: [
+    { tag: 'Механика', t: 'Заряженный смэш', s: 'Три чистых удара подряд заряжают смэш: быстрее и в ноги сопернику', demo: 'charge', keys: ['Q', 'W', 'S'],
+      d: '<p>Три <b>чистых</b> удара подряд — и следующий смэш заряжен: три точки под ногами горят. Заряженный смэш летит быстрее и прямо в ноги сопернику.</p><p>Сработает, только если смэш тоже чистый, а окно у него уже. Нечистый удар сбрасывает серию, свеча и блок её не продолжают. Заряд сгорает в конце розыгрыша и в рекорд смэша не идёт.</p>' },
+    { tag: 'Механика', t: 'Контратака', s: 'Чисто вернул смэш — давление переходит к тому, кто смэшил',
+      d: '<p>Если чисто вернуть смэш соперника — не свечой, — давление переходит на него, а его серия чистых ударов сгорает.</p>' },
+    { tag: 'Момент', t: '«В ногу!»', s: 'Смэш, упавший у ног соперника, табло отмечает отдельно', demo: 'feet', keys: ['A', 'W', 'S'],
+      d: '<p>Смэш, который упал у самых ног соперника, табло на стене показывает как «В ногу!». Счётчик таких попаданий — в твоём профиле.</p><p>Целься с зажатой <kbd>A</kbd>: смэш пойдёт короче, в ноги.</p>' },
+    { tag: 'Партия', t: 'Партия до 7 или до 15', s: 'Короткая партия, когда времени на одну игру', demo: 'score7',
+      d: '<p>Перед стартом выбери длину: до 15 или до 7. В короткой партии при 6:6 нужен отрыв в два очка, но не дольше чем до 10. В сети длину выбирает хозяин комнаты.</p>' },
+    { tag: 'Профиль', t: 'Вход по имени и ПИНу', s: 'Один профиль на телефоне и компьютере, общая таблица',
+      d: '<p>Придумай ПИН из 4 цифр — по имени и ПИНу войдёшь с телефона или другого браузера. В общую таблицу результаты пишутся только с ПИНом, поэтому чужие матчи туда не попадут.</p>' },
+    { tag: 'Режим', t: 'Тренировка с многоволанкой', s: 'Робот подаёт 20 воланов, клади их в подсвеченные зоны',
+      d: '<p>Робот подаёт 20 воланов подряд, а ты кладёшь их в подсвеченную зону. Попал — 3 очка, чисто — ещё одно, серия от трёх — ещё одно. Лучший результат попадает в таблицу тренировки.</p>' },
+  ] },
+];
+const todayId = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+// не видел: всё новее последнего просмотренного; кто ни разу не открывал окно — только самое свежее
+function newsUnseen() { const seen = loadJSON('bdm-news', ''); return typeof seen === 'string' && seen ? NEWS.filter(r => r.id > seen) : NEWS.slice(0, 1); }
+function markNewsSeen() { if (NEWS.length) saveJSON('bdm-news', NEWS[0].id); renderNewsChip(); }
+function renderNewsChip() {
+  const r = NEWS[0], btn = $('newsBtn'); btn.hidden = !r; if (!r) return;
+  const unseen = newsUnseen().length > 0 && !!profile.name;
+  btn.classList.toggle('unseen', unseen); $('newsNew').hidden = !unseen;
+  $('newsDate').textContent = r.id.slice(0, 10) === todayId() ? 'сегодня' : r.date;
+}
+const newsCount = n => n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'обновление' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'обновления' : 'обновлений');
+const newsSteps = r => r.items.map(it => ({ t: it.t, keys: it.keys || [], demo: it.demo || null, d: it.d }));
+function renderNews(list, fresh) {
+  const box = $('nList'); box.textContent = '';
+  for (const r of list) {
+    const sec = document.createElement('section'); sec.className = 'nrel';
+    const h = document.createElement('h3'), led = document.createElement('span');
+    led.className = 'led'; led.textContent = r.id.slice(8, 10) + '.' + r.id.slice(5, 7);
+    h.append(led, document.createTextNode(r.date));
+    if (fresh.has(r.id)) { const n = document.createElement('span'); n.className = 'nc-new'; n.textContent = 'новое'; h.appendChild(n); }
+    const ul = document.createElement('ul');
+    r.items.forEach((it, i) => {
+      const li = document.createElement('li'), b = document.createElement('button');
+      b.className = 'nitem' + (it.demo ? ' has-demo' : '');
+      b.innerHTML = '<span class="ntag"></span><span class="nbody"><b></b><small></small></span><span class="ngo"><span></span><i aria-hidden="true"></i></span>';
+      b.querySelector('.ntag').textContent = it.tag;
+      b.querySelector('.nbody b').textContent = it.t;
+      b.querySelector('.nbody small').textContent = it.s;
+      b.querySelector('.ngo span').textContent = it.demo ? 'анимация' : 'подробнее';
+      b.querySelector('.ngo i').textContent = it.demo ? '▶' : '›';
+      // пункт открывается в проигрывателе правил; «К списку» и ✕ возвращают сюда же
+      b.addEventListener('click', () => { $('news').hidden = true; openDeck(newsSteps(r), i, r.date, () => { $('news').hidden = false; b.focus(); }, 'Что нового'); });
+      li.appendChild(b); ul.appendChild(li);
+    });
+    sec.append(h, ul); box.appendChild(sec);
+  }
+}
+function openNews(auto) {
+  const fresh = new Set(newsUnseen().map(r => r.id));
+  const list = auto ? NEWS.filter(r => fresh.has(r.id)) : NEWS;
+  if (!list.length) return;
+  $('nTitle').textContent = !auto ? 'Что нового' : list.length > 1 ? 'Пока тебя не было — ' + newsCount(list.length) : list[0].id.slice(0, 10) === todayId() ? 'Сегодня вышло обновление' : 'Вышло обновление';
+  $('nAll').hidden = !auto || list.length === NEWS.length;
+  renderNews(list, fresh);
+  $('news').hidden = false; $('news').scrollTop = 0;
+  markNewsSeen();
+  setTimeout(() => $('nCard').focus(), 30);
+}
+function closeNews() { $('news').hidden = true; }
+$('newsBtn').addEventListener('click', () => openNews(false));
+$('nOk').addEventListener('click', closeNews);
+$('nClose').addEventListener('click', closeNews);
+$('nAll').addEventListener('click', () => openNews(false));
+$('news').addEventListener('click', e => { if (e.target === $('news')) closeNews(); });
+$('news').addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeNews(); } });
+// Показ при входе: только вернувшимся, в меню и когда не открыто другое окно
+let newsPending = false;
+function maybeNews() {
+  if (!profile.name || !newsUnseen().length) return;
+  if (!$('nameDlg').hidden || !$('rules').hidden || !$('news').hidden || $('menu').hidden || game.mode !== 'demo' || Net.role) return;
+  openNews(true);
+}
+function newsAfterName() { if (newsPending) { newsPending = false; setTimeout(maybeNews, 300); } }
+function newsInit() {
+  renderNewsChip();
+  if (/^#[A-Za-z0-9]{4}$/.test(location.hash)) return; // пришёл по ссылке в комнату — не мешаем войти, покажем в другой раз
+  if (!profile.name || !$('nameDlg').hidden) { newsPending = true; return; } // сначала окно входа
+  setTimeout(maybeNews, 400);
+}
 
 /* ========= Цикл ========= */
 let last = performance.now(), acc = 0;
@@ -3345,7 +3571,7 @@ function frame(now) {
 
 // Для отладки и автотестов
 window.__bdm = {
-  game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact,
+  game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact, NEWS, openNews,
   READ, readReset() { readMem = null; for (const p of P) if (p.ai) p.ai.read = null; game.stats.read = null; },
   fastForward(sec) { const n = Math.round(sec / H); for (let i = 0; i < n && game.state !== 'over'; i++) step(H); game.hitstop = 0; },
 };
@@ -3374,6 +3600,7 @@ function start(data) {
   if (!inClaude() && !USE_LOCAL) setTimeout(iceServers, 1500); // ключи ретранслятора заранее: комната создаётся без лишнего ожидания
   if (/Instagram|FBAN|FBAV|FB_IAB|Line\/|VKClient|Telegram|; wv\)/i.test(navigator.userAgent)) $('inapp').hidden = false;
   if (!profile.name || (cloudOn() && !profile.acc)) openNameDlg();
+  newsInit();
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 }
 try { window.claude?.hot?.snapshot?.(() => ({ cfg: { ...cfg }, diff: game.diff })); } catch (_) {}
