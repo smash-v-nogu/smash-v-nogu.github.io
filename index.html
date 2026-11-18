@@ -1734,6 +1734,25 @@ function sndHit(power) { if (!canSound()) return; noise(2400 - power * 700, 1.4,
 function sndNet() { if (!canSound()) return; noise(600, 0.8, 0.25, 0.18); }
 function sndFloor() { if (!canSound()) return; noise(900, 1, 0.12, 0.06); }
 function sndPoint(good) { if (!canSound()) return; tone(good ? 660 : 440, good ? 990 : 330, 0.09, 0.22, 'sine'); }
+// Судейский свисток «соперник пришёл»: звучит и в меню, и в фоновой вкладке (контекст разблокирован кликом «Создать комнату»)
+function sndWhistle() {
+  if (!cfg.sound || !actx) return;
+  const play = () => {
+    const blast = (t0, dur) => {
+      const t = actx.currentTime + t0;
+      const o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = 2650;
+      const lfo = actx.createOscillator(); lfo.frequency.value = 27; // трель горошины
+      const lg = actx.createGain(); lg.gain.value = 150; lfo.connect(lg).connect(o.frequency);
+      const g = actx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.2, t + 0.02);
+      g.gain.setValueAtTime(0.2, t + dur - 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(master); o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+      noise(2700, 2, 0.06, Math.min(dur, 0.28), t0);
+    };
+    blast(0, 0.16); blast(0.27, 0.5);
+  };
+  if (actx.state === 'running') play(); else actx.resume().then(play, () => {});
+}
 
 /* ========= Отрисовка ========= */
 const $ = id => document.getElementById(id);
@@ -2111,7 +2130,21 @@ function render(dt) {
   drawShuttle(ctx);
   drawPopups(ctx, dt);
   drawBubbles(ctx, dt);
+  drawAway(ctx);
   ctx.restore();
+}
+// У гостя: хозяин ушёл в другую вкладку, игра стоит, пока он не вернётся
+function drawAway(c) {
+  if (game.mode !== 'online' || Net.role !== 'guest' || !Net.peerAway) return;
+  const a = 0.65 + 0.35 * Math.sin(performance.now() / 300);
+  c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.globalAlpha = a; c.fillStyle = COLORS.lamp;
+  c.font = `700 ${Math.max(13, sc * 0.3)}px ${FD}`;
+  c.fillText('ДРУГ ОТОШЁЛ', X(NET), Y(3.4));
+  c.globalAlpha = 1; c.fillStyle = COLORS.muted;
+  c.font = `500 ${Math.max(11, sc * 0.2)}px ${FB}`;
+  c.fillText(Net.peerAway === 2 ? 'Позвали свистком — игра начнётся, когда друг вернётся' : 'Игра стоит, пока друг не вернётся', X(NET), Y(3.4) + Math.max(20, sc * 0.42));
+  c.restore();
 }
 
 
@@ -2371,7 +2404,7 @@ const Net = {
   role: null, myIdx: 0, transport: null, connected: false, code: '',
   reset() {
     clearInterval(this.syncIv);
-    Object.assign(this, { peerPid: null, peerName: '', peerStyle: null, syncIv: null, role: null, myIdx: 0, transport: null, connected: false, code: '', outN: 0, lastInN: 0, lastSnapN: 0,
+    Object.assign(this, { peerPid: null, peerName: '', peerStyle: null, peerAway: 0, syncIv: null, role: null, myIdx: 0, transport: null, connected: false, code: '', outN: 0, lastInN: 0, lastSnapN: 0,
       evSeq: 0, events: [], eventAck: 0, lastEv: 0, shotSeq: 0, shotKey: null, lastShotSeq: 0, posEpoch: -1,
       againSeq: 0, lastAg: 0, lobbyBeat: null, reactSeq: 0, reactI: 0, lastRq: 0, lastReact: 0, rtt: 0, remoteRtt: 0.1, lastTs: 0, lastHs: 0, lastHe: 0, lastRecv: 0, lastSend: 0, lastPing: 0, joinTimer: null, joinAt: 0, savedCfg: null, retries: 0 });
   },
@@ -2587,7 +2620,8 @@ function netCallbacks() {
       const link = /^https?:$/.test(location.protocol) && !inClaude() ? location.origin + location.pathname + '#' + code : '';
       $('netControls').hidden = true;
       lobbyAnnounce('open'); clearInterval(Net.lobbyBeat); Net.lobbyBeat = setInterval(() => lobbyAnnounce('open'), 20000);
-      setNetStatus(`<div class="wait"><span class="code">${code}</span><span>${canWrite() ? 'Друзья увидят тебя в списке «Ждут соперника». Или отправь' : 'Отправь'} код${link ? ' или ссылку' : ''} другу. Игра начнётся, как только он войдёт.</span>` +
+      // «Даже если ты в другой вкладке» — только на компьютере: телефон усыпляет фоновую страницу, и свисток прозвучит, лишь когда вернёшься
+      setNetStatus(`<div class="wait"><span class="code">${code}</span><span>${canWrite() ? 'Друзья увидят тебя в списке «Ждут соперника». Или отправь' : 'Отправь'} код${link ? ' или ссылку' : ''} другу. Игра начнётся, как только он войдёт${!cfg.sound ? '' : document.body.classList.contains('touch') ? ' — свистнем' : ' — свистнем, даже если ты в другой вкладке'}.</span>` +
         `<span class="wait-actions">${link && navigator.share ? '<button class="btn accent" id="shareLink">Пригласить</button>' : ''}${link ? '<button class="btn soft" id="copyLink">Скопировать ссылку</button>' : ''}<button class="linkbtn" id="netCancel">Отменить</button></span></div>`);
       const shb = $('shareLink');
       if (shb) shb.addEventListener('click', () => { navigator.share({ title: 'Смэш мне в ногу', text: 'Залетай на партию в бадминтон! Код комнаты ' + code, url: link }).catch(() => {}); });
@@ -2601,7 +2635,7 @@ function netCallbacks() {
       NetStats.start(Net.lastRecv - (Net.role === 'guest' ? Net.joinAt : (Net.transport && Net.transport.connAt) || Net.lastRecv));
       clearTimeout(Net.joinTimer);
       startSync();
-      if (Net.role === 'host') { clearInterval(Net.lobbyBeat); lobbyRemove(Net.code); startGame('online'); }
+      if (Net.role === 'host') { clearInterval(Net.lobbyBeat); lobbyRemove(Net.code); startGame('online'); callHost(); }
       else setNetStatus('Соединились, ждём начала…');
     },
     onData(m) { Net.lastRecv = performance.now(); NetStats.recv(Net.lastRecv); handleNet(m); },
@@ -2620,6 +2654,26 @@ function netErrText(type) {
     : 'Не удалось подключиться к серверу соединений. Проверь интернет и попробуй ещё раз.';
   return msg + (document.body.classList.contains('touch') ? ' Если ссылка открыта внутри Telegram или Instagram, открой её в Safari или Chrome.' : '');
 }
+// Гость вошёл: свисток. Если хозяин в другой вкладке — мигаем заголовком и свистим ещё через 12 и 30 с, пока не вернётся.
+// Физику считает хозяин, а в скрытой вкладке кадры стоят, так что игра ждёт его на подаче (первая подача — его).
+let callIv = null;
+function callHost() {
+  stopCall();
+  sndWhistle();
+  if (!document.hidden) return;
+  let k = 0;
+  callIv = setInterval(() => {
+    if (!document.hidden || game.mode !== 'online' || !Net.connected) { stopCall(); return; }
+    k++;
+    document.title = k % 2 ? '🏸 Соперник пришёл!' : 'Смэш мне в ногу';
+    if (k === 12 || k === 30) sndWhistle();
+  }, 1000);
+}
+function stopCall() { if (!callIv) return; clearInterval(callIv); callIv = null; updateBoard(); }
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) stopCall();
+  if (Net.role === 'host' && game.mode === 'online') sendSnapshot(); // гость сразу узнаёт, что хозяин ушёл или вернулся
+});
 function netHost() {
   netClose();
   const tr = makeTransport(); if (!tr) return;
@@ -2679,6 +2733,7 @@ function sendSnapshot() {
     g: [game.state, game.score[0], game.score[1], game.server, game.rallyHits, game.over, game.posEpoch, game.target], id: profile.pid, nm: profile.name, sy: profile.style,
     c: [cfg.timeScale, cfg.runSpeed, cfg.reach, cfg.vTerm],
     ev: Net.events.filter(e => e[0] > Net.eventAck), rt: Net.lastTs, hs: performance.now(),
+    aw: document.hidden ? (callIv ? 2 : 1) : 0, // хозяин в другой вкладке (2 — только что позвали свистком)
   });
 }
 function onGuestInput(m) {
@@ -2756,6 +2811,7 @@ function onSnapshot(m) {
   sh.x = s[0]; sh.y = s[1]; sh.vx = s[2]; sh.vy = s[3]; sh.held = !!s[4]; sh.inPlay = !!s[5]; sh.ang = s[6]; sh.netHit = !!s[7];
   sh.lastHitter = s[8] >= 0 ? P[s[8]] : null; sh.predLand = s[9];
   if (sh.held && !wasHeld) sh.trail = [];
+  Net.peerAway = m.aw === 1 || m.aw === 2 ? m.aw : 0;
   for (const e of m.ev || []) if (e[0] > Net.lastEv) { Net.lastEv = e[0]; applyFx(e[1], e.slice(2)); }
   if (m.rt) { const smp = (performance.now() - m.rt) / 1000; if (smp > 0 && smp < 3) Net.rtt = Net.rtt ? lerp(Net.rtt, smp, 0.15) : smp; }
   if (Number.isFinite(m.hs)) Net.lastHs = m.hs; // вернём хозяину в своём вводе: по нему он меряет пинг
@@ -3150,7 +3206,7 @@ setInterval(() => { if (!document.hidden && !$('menu').hidden) cloudSync(); }, 4
 
 
 /* ========= Лобби: открытые комнаты ========= */
-const LOBBY_TTL = 45000;
+const LOBBY_TTL = 75000; // пульс раз в 20 с, но фоновая вкладка через 5 мин шлёт его раз в минуту (троттлинг таймеров Chrome)
 async function lobbyAnnounce(status) {
   if (!canWrite() || !Net.code || Net.role !== 'host') return;
   try { await cloudReq('rpc/bdm_room', { method: 'POST', body: authBody({ p_code: Net.code, p_status: status }) }); } catch (_) {}
