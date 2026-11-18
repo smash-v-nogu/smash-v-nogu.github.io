@@ -478,12 +478,15 @@ body.touch .rules-cta { max-width: none; }
 .nc-new { padding: 3px 7px; border-radius: 999px; background: var(--lamp); color: #221804; font: 700 9px var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
 .nc-new[hidden] { display: none; }
 .news-chip[hidden] { display: none; }
-#news { z-index: 12; background: rgba(4, 7, 8, 0.8); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+#news { z-index: 12; overflow: hidden; background: rgba(4, 7, 8, 0.8); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .news-card:focus { outline: none; }
-.news-card { width: min(640px, 100%); padding: 18px 20px 20px; border-radius: 22px; border: 1px solid var(--plate-edge); background: var(--plate); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 30px 80px rgba(0, 0, 0, 0.5); display: grid; gap: 14px; }
+.news-card { width: min(640px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: hidden; padding: 18px 20px 20px; border-radius: 22px; border: 1px solid var(--plate-edge); background: var(--plate); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 30px 80px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; gap: 14px; }
 .news-card h2 { margin: 0; font: 700 22px var(--font-display); letter-spacing: -0.01em; }
 .news-sub { margin: -6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
-.news-list { display: grid; gap: 18px; }
+.news-card > * { flex: none; }
+.news-list { display: grid; gap: 18px; align-content: start; flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-right: -8px; padding-right: 8px; scrollbar-width: thin; scrollbar-color: #2b3d3f transparent; }
+.news-list.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent); }
+@media (max-height: 520px) { .news-sub { display: none; } .news-card { gap: 10px; } .news-card h2 { font-size: 18px; } }
 .nrel { display: grid; gap: 8px; }
 .nrel h3 { margin: 0; display: flex; align-items: center; gap: 10px; font: 700 11px var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .nrel h3 .led { font: 900 20px/1 var(--font-led); letter-spacing: 0.06em; color: var(--lamp); text-shadow: 0 0 10px rgba(255, 215, 138, 0.5); }
@@ -3667,14 +3670,19 @@ function openNews(auto) {
   const fresh = new Set(newsUnseen().map(r => r.id));
   const list = auto ? NEWS.filter(r => fresh.has(r.id)) : NEWS;
   if (!list.length) return;
+  $('nKick').textContent = auto ? 'Что нового' : 'Обновления';
   $('nTitle').textContent = !auto ? 'Что нового' : list.length > 1 ? 'Пока тебя не было — ' + newsCount(list.length) : list[0].id.slice(0, 10) === todayId() ? 'Сегодня вышло обновление' : 'Вышло обновление';
   $('nAll').hidden = !auto || list.length === NEWS.length;
   renderNews(list, fresh);
-  $('news').hidden = false; $('news').scrollTop = 0;
+  $('news').hidden = false; $('nList').scrollTop = 0; newsMore();
   markNewsSeen();
   setTimeout(() => $('nCard').focus(), 30);
 }
 function closeNews() { $('news').hidden = true; }
+// внизу списка гаснет край, пока есть что прокрутить
+function newsMore() { const l = $('nList'); l.classList.toggle('more', l.scrollHeight - l.scrollTop - l.clientHeight > 4); }
+$('nList').addEventListener('scroll', newsMore, { passive: true });
+window.addEventListener('resize', () => { if (!$('news').hidden) newsMore(); });
 $('newsBtn').addEventListener('click', () => openNews(false));
 $('nOk').addEventListener('click', closeNews);
 $('nClose').addEventListener('click', closeNews);

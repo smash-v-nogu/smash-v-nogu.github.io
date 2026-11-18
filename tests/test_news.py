@@ -87,6 +87,14 @@ with sync_playwright() as pw:
     assert pg.evaluate("() => localStorage.getItem('bdm-news5')") == json.dumps(news[0])
     ctx.close()
 
+    # окно на низком экране стоит на месте: прокручивается только список, кнопки видны
+    ctx, pg = open_page(br, '7', news=news[0], w=844, h=390)
+    pg.click('#newsBtn'); pg.wait_for_timeout(200)
+    g = pg.evaluate("""() => { const o = document.getElementById('news'), l = document.getElementById('nList'), f = document.querySelector('.news-foot').getBoundingClientRect();
+      return [o.scrollHeight <= o.clientHeight + 1, l.scrollHeight > l.clientHeight + 50, f.bottom <= innerHeight && f.top >= 0]; }""")
+    assert g == [True, True, True], f'окно не крутится, список крутится, кнопки видны: {g}'
+    ctx.close()
+
     # таблица: 21 игрок — все в списке, прокрутка внутри плиты, своя строка внизу видна
     ctx, pg = open_page(br, '6', news=news[0])
     pg.evaluate("""() => { const b = __bdm, recs = []; let id = 0;
