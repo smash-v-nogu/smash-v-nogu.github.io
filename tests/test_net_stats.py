@@ -82,7 +82,8 @@ with sync_playwright() as pw:
     h, g = s[hp], s[gp]
     print('хозяин:', json.dumps(h, ensure_ascii=False)); print('гость: ', json.dumps(g, ensure_ascii=False))
     assert h['r'] == 'h' and g['r'] == 'g' and h['n'] == g['n'] == 1 and h['v'] == 1
-    assert h['path'] == g['path'] == 'local' and h['sw'] == [[0, 'local']], 'путь без сети — local'
+    # Путь замеряют раз в секунду с произвольной фазой от соединения: первая отметка — секунда 0 или 1
+    assert h['path'] == g['path'] == 'local' and len(h['sw']) == 1 and h['sw'][0][1] == 'local' and h['sw'][0][0] <= 1, f"путь без сети — local: {h['sw']}"
     for x in (h, g):
         assert x['dur'] >= 2 and 0 <= x['ct'] < 5000, x
         assert x['rx'] >= 20 and x['fps'] >= 20, f'темп сообщений и кадров: {x}'
