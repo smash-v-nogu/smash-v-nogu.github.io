@@ -111,6 +111,10 @@ with sync_playwright() as pw:
     me = pg.evaluate("""() => { const s = document.getElementById('lbScroll').getBoundingClientRect(), r = document.querySelector('#lbBody tr.me td').getBoundingClientRect(); /* прилипают ячейки, строка остаётся на месте */ return [r.top >= s.top - 1, r.bottom <= s.bottom + 1]; }""")
     assert me == [True, True], f'своя строка видна без прокрутки: {me}'
     tiles = pg.evaluate("() => ['.t-ai', '.t-lb'].map(s => Math.round(document.querySelector(s).getBoundingClientRect().height))")
+    # десктоп: таблица на всю высоту меню — низ вровень с «Управлением», а оно не разрастается и меню влезает в 900 px
+    geo = pg.evaluate("""() => { const r = s => document.querySelector(s).getBoundingClientRect();
+      return [Math.round(r('.t-lb').bottom - r('.t-keys').bottom), Math.round(r('.t-keys').height), Math.round(r('#menu > .menu-inner').height)]; }""")
+    assert abs(geo[0]) <= 1 and geo[1] < 230 and geo[2] <= 900, f'таблица до низа меню, «Управление» компактное, меню в экране: {geo}'
     ctx.close()
     br.close()
 

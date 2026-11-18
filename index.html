@@ -336,7 +336,7 @@ body.touch .rules-cta { max-width: none; }
   .t-net .net-status, .t-net .net-status:empty { display: block; min-height: 4.5em; }
 }
 @media (min-width: 1080px) {
-  .menu-grid { grid-template-columns: 1fr 1fr 1.2fr; grid-template-areas: "ai net lb" "train net lb" "keys keys keys"; }
+  .menu-grid { grid-template-columns: 1fr 1fr 1.2fr; grid-template-areas: "ai net lb" "train net lb" "keys keys lb"; }
 }
 .menu-inner, #nameDlg, #news {
   --plate: linear-gradient(180deg, rgba(14, 21, 23, 0.97), rgba(6, 9, 10, 0.98));
@@ -457,10 +457,19 @@ body.touch .rules-cta { max-width: none; }
 .lb-scroll tr.me td { position: sticky; top: 21px; bottom: 0; z-index: 1; box-shadow: 0 -6px 0 #0a1012, 0 6px 0 #0a1012; }
 .lb-scroll tr.me td.rank, .lb-scroll tr.me td:last-child { box-shadow: inset 0 0 0 1px var(--plate-edge), 0 -6px 0 #0a1012, 0 6px 0 #0a1012; }
 .lb-scroll tr.me.p1 td:first-child { box-shadow: inset 0 0 0 1px rgba(245, 196, 81, 0.6), 0 -6px 0 #0a1012, 0 6px 0 #0a1012; }
-/* десктоп: плита таблицы растянута соседними плитами и не растягивает их сама, строки уходят в скролл */
+/* десктоп: таблица занимает всю высоту меню справа, «Управление» — под двумя левыми колонками */
 @media (min-width: 1080px) {
-  .t-lb { contain: size; }
-  .lb-scroll { flex: 0 1 auto; max-height: none; }
+  .t-lb { contain: size; } /* таблица на всю высоту меню: её высоту задают соседние плиты, строки прокручиваются внутри */
+  .lb-scroll { flex: 0 1 auto; max-height: none; } /* подпись идёт сразу под строками; не влезли — строки прокручиваются */
+  /* «Управление» на две колонки: «Правила» — в строке заголовка, клавиши и пояснение рядом, чтобы плита не выросла */
+  body:not(.touch) .t-keys { display: grid; grid-template-columns: 210px minmax(0, 1fr) auto; grid-template-areas: "h h r" "caps note note"; align-items: center; gap: 12px 22px; }
+  body:not(.touch) .t-keys .keys { display: contents; }
+  body:not(.touch) .t-keys .keys h2 { grid-area: h; }
+  body:not(.touch) .t-keys .caps { grid-area: caps; }
+  body:not(.touch) .t-keys .keys-note { grid-area: note; }
+  body:not(.touch) .t-keys .rules-cta { grid-area: r; max-width: none; }
+  body:not(.touch) .t-keys .rules-cta small { display: none; }
+  body:not(.touch) #openRules { padding: 10px 22px; }
 }
 
 /* «Что нового»: фишка в шапке и окно со списком обновлений */
