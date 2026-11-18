@@ -1,5 +1,6 @@
 """Баланс ИИ на ускоренной симуляции: демо-режим, оба игрока под ИИ, __bdm.fastForward.
-Проверяем, что стороны симметричны, уровни упорядочены и розыгрыши не бесконечные. Supabase отрезан.
+Проверяем, что стороны симметричны, уровни упорядочены и розыгрыши не бесконечные, а однообразный соперник
+(бот на физике сложного жмёт одну кнопку с одним прицелом) не обыгрывает сложного. Supabase отрезан.
 SECS — игровых секунд на случай (по умолчанию 15000, около 10 с реального времени на случай).
 HTML — путь к другой версии index.html, чтобы сравнить со старым коммитом:
     git show <коммит>:index.html > /tmp/old.html && HTML=/tmp/old.html python3 test_ai_balance.py"""
@@ -17,6 +18,19 @@ CASES = [
     ('easy', 'medium', 'tech', 'tech'),
     ('hard', 'medium', 'defense', 'attack'),
 ]
+# Однообразные боты против сложного: (название, бот, минимальная доля очков у сложного).
+# До тактики 18.11.2026 у сложного было 41–44% против дропера и 33% против смэша на заднюю, сейчас около 52% и 58%;
+# порог у дропера ниже 50% на шум (при 15000 с около 2,5 п.п.), но старое поведение он ловит.
+BOTS = [
+    ('острый дроп / тугая сетка', {'key': 'drop', 'place': 1}, 0.47),
+    ('смэш на заднюю (снизу драйв)', {'key': 'smash', 'place': -1}, 0.5),
+    ('смэш в ноги (снизу драйв)', {'key': 'smash', 'place': 1}, 0.55),
+]
+# «Человек»: бот без случайных срывов ИИ (err 0), только с риском тугого прицела, как у живого игрока (TIGHT_RISK).
+# Всегда острый дроп: без риска брал у сложного 74% очков, с ним около 49%. Порог — не больше 55%.
+HUMAN = {'label': 'человек', 'react': 0.22, 'speed': 1, 'spread': 1, 'err': 0, 'perfect': 0.35, 'judgeOut': 0.9, 'aggr': 1,
+         'power': 1, 'timing': 0.03, 'risk': 0}
+HUMAN_MAX = 0.55
 
 errs, rows = [], []
 with sync_playwright() as pw:
@@ -33,6 +47,23 @@ with sync_playwright() as pw:
         r.update(d0=d0, d1=d1, s0=s0, s1=s1); rows.append(r); p = r['pts']
         print(f"{d0}/{s0} vs {d1}/{s1}: очки {p[0]}:{p[1]} ({round(100 * r['share0'])}% слева) · партий {r['n']}, слева выиграно {round(r['win0'] * r['n'])} · "
               f"ср. счёт {r['avgScore']} · ударов за розыгрыш {r['avgHits']}, макс {r['maxHits']} · дольше всего без очка {r['maxQuiet']} с")
+    bots = []
+    for name, bot, low in BOTS:
+        r = ai_case(A, {'diff': 'hard', 'bot': bot}, {'diff': 'hard'}, 'tech', 'tech', SECS, STUCK)
+        bots.append((name, low, r))
+        print(f"бот «{name}» против сложного: у сложного {1 - r['share0']:.1%} очков, {1 - r['win0']:.0%} партий из {r['n']} · "
+              f"ударов за розыгрыш {r['avgHits']}, макс {r['maxHits']}")
+    A.evaluate("h => { __bdm.DIFFS.human = { ...h, tight: __bdm.TIGHT_RISK }; }", HUMAN)
+    hum = ai_case(A, {'diff': 'human', 'bot': {'key': 'drop', 'place': 1}}, {'diff': 'hard'}, 'tech', 'tech', SECS, STUCK)
+    print(f"«человек» (острый дроп, риск {A.evaluate('() => __bdm.TIGHT_RISK')}) против сложного: у человека {hum['share0']:.1%} очков, "
+          f"{hum['win0']:.0%} партий из {hum['n']} · ударов за розыгрыш {hum['avgHits']}, макс {hum['maxHits']}")
+    # ошибка от срыва подписана в итоге розыгрыша: «Сорвался · в сетку» / «Сорвался · аут»; у ИИ (срыв по err) такой подписи нет
+    SLIP_LABELS = """(who) => { const b = __bdm, g = b.game, seen = new Set(), t = {};
+      b.P[0].ai = { diff: who, bot: { key: 'drop', place: 1 } }; b.P[1].ai = { diff: 'hard' };
+      for (let s = 0; s < 800; s += 0.1) { b.fastForward(0.1); for (const p of g.popups) if (/^Сорвался/.test(p.text) && !seen.has(p)) { seen.add(p); t[p.text] = (t[p.text] || 0) + 1; } }
+      return t; }"""
+    slip_h, slip_ai = A.evaluate(SLIP_LABELS, 'human'), A.evaluate(SLIP_LABELS, 'hard')
+    print(f"подписи срыва: у «человека» {slip_h}, у бота на физике сложного {slip_ai}")
     br.close()
 
 by = {(r['d0'], r['d1'], r['s0'], r['s1']): r for r in rows}
@@ -47,5 +78,12 @@ assert by[('hard', 'medium', 'tech', 'tech')]['win0'] >= 0.75, 'сложный �
 assert by[('medium', 'hard', 'tech', 'tech')]['win0'] <= 0.25, 'сложный справа должен уверенно обыгрывать среднего'
 assert by[('easy', 'medium', 'tech', 'tech')]['win0'] <= 0.25, 'средний должен уверенно обыгрывать лёгкого'
 assert by[('hard', 'medium', 'defense', 'attack')]['win0'] >= 0.75, 'стиль не должен переворачивать уровень'
+for name, low, r in bots:
+    assert r['maxQuiet'] <= STUCK and r['maxHits'] < 100, f"бот «{name}»: розыгрыш завис"
+    assert 1 - r['share0'] >= low, f"бот «{name}» обыгрывает сложного: у сложного {1 - r['share0']:.1%} очков"
+assert hum['maxQuiet'] <= STUCK and hum['maxHits'] < 100, '«человек»: розыгрыш завис'
+assert hum['share0'] <= HUMAN_MAX, f"«человек» с острым дропом обыгрывает сложного: {hum['share0']:.1%} очков (риск тугого прицела не работает?)"
+assert slip_h.get('Сорвался · в сетку', 0) > 0, f'срыв тугой сетки подписан «Сорвался · в сетку»: {slip_h}'
+assert not slip_ai, f'у ИИ подписи «Сорвался» нет: {slip_ai}'
 assert not errs, errs
 print('OK: баланс ИИ')
