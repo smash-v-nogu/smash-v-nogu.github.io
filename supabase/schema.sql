@@ -57,6 +57,25 @@ create policy "rooms read" on public.rooms for select to anon, authenticated usi
 revoke all on public.rooms from anon, authenticated;   -- пишет только bdm_room
 grant select on public.rooms to anon, authenticated;
 
+-- ========= Сводка сети онлайн-матчей (с 18.11.2026) =========
+-- Каждый участник присылает свою сторону вместе с матчем через bdm_sync: путь (напрямую / ретранслятор, UDP / TCP),
+-- пинг, замирания, темп. Нужна, чтобы разбирать жалобы «лагало». Ключи d — как в NetStats.take() в index.html:
+-- v версия, r h|g (хозяин / гость), n номер матча в соединении, dur с, ct мс до соединения, path и sw [[с, путь]…],
+-- png [p50, p95, max] пинг игры мс, ice [p50, max] пинг соединения мс, fz замираний > 250 мс, fzT с в них, gap самая
+-- длинная пауза мс, rx сообщений друга в с, fps свои кадры в с, hid с скрытой вкладки, buf макс. очередь канала, ua.
+create table if not exists public.net_stats (
+  match_id text not null check (match_id ~ '^[a-z0-9]{8,24}$'),
+  pid text not null check (pid ~ '^[a-z0-9]{6,16}$'),
+  d jsonb not null check (jsonb_typeof(d) = 'object' and octet_length(d::text) <= 1500),
+  created_at timestamptz not null default now(),
+  primary key (match_id, pid)
+);
+alter table public.net_stats enable row level security;
+drop policy if exists "net_stats read" on public.net_stats;
+create policy "net_stats read" on public.net_stats for select to anon, authenticated using (true);
+revoke all on public.net_stats from anon, authenticated;   -- пишет только bdm_sync
+grant select on public.net_stats to anon, authenticated;
+
 -- ========= Вход по имени и ПИН-коду =========
 create table if not exists public.accounts (
   pid text primary key check (pid ~ '^[a-z0-9]{6,16}$'),
@@ -180,6 +199,8 @@ grant execute on function public.bdm_login(text, text, text, text) to anon, auth
 
 -- Синхронизация своего. p_matches — массив строк как в таблице matches (до 200): записываются только матчи,
 -- где игрок участвует своим id или старым, склеенным с аккаунтом; чужие и кривые пропускаются.
+-- У онлайн-матча может быть поле net — своя сводка сети (см. net_stats): пишется одна на игрока и матч,
+-- только если матч в базе и игрок в нём участвует. Кривая сводка не мешает записать сам матч.
 -- p_best — { smash, rally, train }: рекорды только растут, имя всегда берётся из аккаунта.
 -- Ответ: { ok: true, saved, skipped: [id…] } или { ok: false, err: bad | noacc | locked | pin }
 create or replace function public.bdm_sync(p_pid text, p_pin text, p_matches jsonb default '[]'::jsonb, p_best jsonb default null)
@@ -215,6 +236,15 @@ begin
       exception when others then
         skipped := skipped || coalesce(m->>'id', '?');
       end;
+      if m->>'k' = 'net' and jsonb_typeof(m->'net') = 'object' then
+        begin
+          insert into net_stats (match_id, pid, d)
+          select x.id, p_pid, m->'net' from matches x
+          where x.id = m->>'id' and x.k = 'net' and (x.a = any(me) or x.b = any(me))
+          on conflict (match_id, pid) do nothing;
+        exception when others then null;  -- сводка больше 1500 байт или кривая — матч уже записан, её просто нет
+        end;
+      end if;
     else
       skipped := skipped || coalesce(m->>'id', '?');
     end if;

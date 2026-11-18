@@ -39,7 +39,8 @@ const room = async (pid, pin, code, status) =>
 const one = async sql => (await db.query(sql)).rows[0];
 const NOW = Date.now();
 const ai = (id, p, extra = {}) => ({ id, t: NOW - 60000, k: 'ai', p, lv: 'hard', win: true, s1: 15, s2: 9, a: null, b: null, w: null, ...extra });
-const net = (id, a, b) => ({ id, t: NOW - 60000, k: 'net', a, b, w: a, s1: 15, s2: 12, p: null, lv: null, win: null });
+const net = (id, a, b, extra = {}) => ({ id, t: NOW - 60000, k: 'net', a, b, w: a, s1: 15, s2: 12, p: null, lv: null, win: null, ...extra });
+const NS = { v: 1, r: 'h', n: 1, dur: 160, ct: 1200, path: 'relay-udp>srflx-udp', sw: [[0, 'srflx-udp>srflx-udp'], [14, 'relay-udp>srflx-udp']], png: [24, 60, 800], ice: [9, 30], fz: 3, fzT: 1.2, gap: 900, rx: 61, fps: 60, hid: 0, buf: 0, ua: 'mac chrome 157' };
 
 if (process.env.MIGRATE) {
   // Старая схема, как на рабочей базе до 17.11.2026: прямая запись открыта
@@ -59,6 +60,10 @@ if (process.env.MIGRATE) {
   await db.exec(read('supabase/migrations/20261118_smart_level.sql'));
   e = await sync('early00001', '7777', [ai('early00smart', 'early00001', { lv: 'smart' })]);
   assert.equal(e.saved, 1, 'после миграции матч smart записался');
+  // до миграции сводки сети старый bdm_sync поле net пропускает молча, матч записывается
+  e = await sync('early00001', '7777', [net('early00net1', 'early00001', 'someone001', { net: NS })]);
+  assert.equal(e.saved, 1, 'старый bdm_sync не спотыкается о поле net');
+  await db.exec(read('supabase/migrations/20261118_net_stats.sql'));
   console.log('миграция: шаг 1 не ломает старый клиент, шаг 2 применился, уровень smart открыт');
 } else {
   await db.exec(read('supabase/schema.sql'));
@@ -76,10 +81,12 @@ await denied(`insert into public.aliases (from_pid, to_pid) values ('hacker0001'
 await denied(`select * from public.accounts`, 'select accounts');
 await denied(`select * from public.legacy_players`, 'select legacy_players');
 await denied(`select public.bdm_auth('kirill0001', '1234')`, 'bdm_auth снаружи');
-for (const t of ['matches', 'players', 'rooms', 'aliases']) await asAnon(`select count(*) from public.${t}`);
+await denied(`insert into public.net_stats (match_id, pid, d) values ('mynet00001', 'hacker0001', '{}')`, 'insert net_stats');
+await denied(`delete from public.net_stats`, 'delete net_stats');
+for (const t of ['matches', 'players', 'rooms', 'aliases', 'net_stats']) await asAnon(`select count(*) from public.${t}`);
 const left = (await db.query(`select table_name, string_agg(privilege_type, ',' order by privilege_type) p
   from information_schema.role_table_grants where table_schema = 'public' and grantee = 'anon' group by 1 order by 1`)).rows;
-assert.deepEqual(left, ['aliases', 'matches', 'players', 'rooms'].map(t => ({ table_name: t, p: 'SELECT' })), 'у anon остаётся только чтение');
+assert.deepEqual(left, ['aliases', 'matches', 'net_stats', 'players', 'rooms'].map(t => ({ table_name: t, p: 'SELECT' })), 'у anon остаётся только чтение');
 
 // 2. Регистрация и запись своего
 assert.deepEqual(await login('Кирилл', '1234', 'kirill0001'), { ok: true, pid: 'kirill0001', name: 'Кирилл', mode: 'new' });
@@ -163,5 +170,22 @@ await db.exec(`insert into legacy_players (pid, name) values ('legacy0001', 'С�
 assert.deepEqual(await login('саша', '5555', 'newpid0001'), { ok: true, pid: 'legacy0001', name: 'саша', mode: 'claim' });
 assert.equal((await sync('legacy0001', '5555', [ai('sasha00001', 'newpid0001')], { smash: 10 })).saved, 1);
 assert.equal((await one(`select best_smash from players where pid = 'legacy0001'`)).best_smash, 300);
+
+// 9. Сводка сети: каждый участник пишет свою сторону своего онлайн-матча, одна на игрока и матч
+const nets = async id => (await db.query(`select pid, d from net_stats where match_id = $1 order by pid`, [id])).rows;
+r = await sync('kirill0001', '1234', [net('netstat001', 'kirill0001', 'vika000001', { net: NS })]);
+assert.equal(r.saved, 1);
+assert.deepEqual(await nets('netstat001'), [{ pid: 'kirill0001', d: NS }], 'сводка хозяина записалась вместе с матчем');
+r = await sync('vika000001', '4321', [net('netstat001', 'kirill0001', 'vika000001', { net: { ...NS, r: 'g', fz: 0 } })]);
+assert.equal(r.saved, 0, 'матч уже записал хозяин');
+assert.deepEqual((await nets('netstat001')).map(x => [x.pid, x.d.r]), [['kirill0001', 'h'], ['vika000001', 'g']], 'гость дописал свою сторону к готовому матчу');
+await sync('kirill0001', '1234', [net('netstat001', 'kirill0001', 'vika000001', { net: { ...NS, fz: 99 } })]);
+assert.equal((await nets('netstat001'))[0].d.fz, 3, 'повтор не перезаписывает');
+assert.equal((await login('Тим', '2468', 'tim0000001')).ok, true);
+r = await sync('tim0000001', '2468', [net('netstat001', 'tim0000001', 'vika000001', { net: NS })]);
+assert.equal((await nets('netstat001')).length, 2, 'к чужому матчу свою сводку не приписать, даже назвавшись участником');
+r = await sync('kirill0001', '1234', [net('netbig0001', 'kirill0001', 'vika000001', { net: { ...NS, ua: 'x'.repeat(2000) } }), net('netstr0001', 'kirill0001', 'vika000001', { net: 'лагало' }), ai('aiwnet0001', 'kirill0001', { net: NS })]);
+assert.equal(r.saved, 3, 'кривая сводка не мешает записать матч');
+assert.equal((await one(`select count(*)::int n from net_stats where match_id in ('netbig0001', 'netstr0001', 'aiwnet0001')`)).n, 0, 'слишком большая, не объект и у матча с ИИ — не пишется');
 
 console.log('OK: база' + (process.env.MIGRATE ? ' (через миграцию)' : ''));

@@ -2275,13 +2275,14 @@ const Net = {
     clearInterval(this.syncIv);
     Object.assign(this, { peerPid: null, peerName: '', peerStyle: null, syncIv: null, role: null, myIdx: 0, transport: null, connected: false, code: '', outN: 0, lastInN: 0, lastSnapN: 0,
       evSeq: 0, events: [], eventAck: 0, lastEv: 0, shotSeq: 0, shotKey: null, lastShotSeq: 0, posEpoch: -1,
-      againSeq: 0, lastAg: 0, lobbyBeat: null, reactSeq: 0, reactI: 0, lastRq: 0, lastReact: 0, rtt: 0, remoteRtt: 0.1, lastTs: 0, lastHs: 0, lastHe: 0, lastRecv: 0, lastSend: 0, lastPing: 0, joinTimer: null, savedCfg: null, retries: 0 });
+      againSeq: 0, lastAg: 0, lobbyBeat: null, reactSeq: 0, reactI: 0, lastRq: 0, lastReact: 0, rtt: 0, remoteRtt: 0.1, lastTs: 0, lastHs: 0, lastHe: 0, lastRecv: 0, lastSend: 0, lastPing: 0, joinTimer: null, joinAt: 0, savedCfg: null, retries: 0 });
   },
   lagGame() { return clamp(this.remoteRtt || 0.1, 0.02, 0.3) * cfg.timeScale; },
   send(m) { if (this.transport && this.connected) this.transport.send(m); },
   tick(now) {
     if (!this.connected) return;
     if (now - this.lastRecv > 10000) { netLost('Связь с другом потеряна'); return; }
+    NetStats.frames++;
     if (now - this.lastSend >= 15) { this.lastSend = now; this.role === 'host' ? sendSnapshot() : sendInput(); }
     if (now - this.lastPing > 500 && game.mode === 'online') {
       this.lastPing = now;
@@ -2292,7 +2293,67 @@ const Net = {
 };
 Net.reset();
 // Фоновая вкладка почти не крутит кадры: держим связь раз в секунду
-setInterval(() => { if (Net.connected && game.mode === 'online') { Net.role === 'host' ? sendSnapshot() : sendInput(); } }, 1000);
+setInterval(() => { if (Net.connected && game.mode === 'online') { Net.role === 'host' ? sendSnapshot() : sendInput(); NetStats.sample(); } }, 1000);
+
+/* Сводка сети за матч (с 18.11.2026). Каким путём шла игра (напрямую или через ретранслятор, UDP или TCP), пинг,
+   замирания (друг молчал дольше NET_GAP), темп сообщений друга и свой темп кадров, сколько вкладка была скрыта.
+   Каждая сторона считает своё и отправляет вместе с матчем: bdm_sync кладёт в таблицу net_stats. Без этого жалобу
+   «лагало» задним числом не разобрать: серверам не видно ни пути, ни пинга. Окно — от соединения или прошлого
+   матча до конца этого, так что первая партия включает и то, как соединение устаканивалось. */
+const NET_GAP = 250;
+function uaShort() {
+  const u = navigator.userAgent || '';
+  const os = /iPhone|iPod/.test(u) ? 'ios' : /iPad/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? 'ipad'
+    : /Android/.test(u) ? 'android' : /Macintosh/.test(u) ? 'mac' : /Windows/.test(u) ? 'win' : /Linux|CrOS/.test(u) ? 'linux' : 'other';
+  const b = /(EdgiOS|Edg|OPR|YaBrowser|SamsungBrowser|FxiOS|Firefox|CriOS|Chrome)\/(\d+)/.exec(u), s = !b && /Version\/(\d+).*Safari/.exec(u);
+  const name = b ? ({ EdgiOS: 'edge', Edg: 'edge', OPR: 'opera', YaBrowser: 'yandex', SamsungBrowser: 'samsung', FxiOS: 'firefox', Firefox: 'firefox', CriOS: 'chrome', Chrome: 'chrome' }[b[1]] + ' ' + b[2]) : s ? 'safari ' + s[1] : '?';
+  return (os + ' ' + name + (/Telegram|Instagram|FBAN|FBAV/.test(u) ? ' inapp' : '')).slice(0, 40);
+}
+const NetStats = {
+  path: null, n: 0, ct: 0,
+  start(ct) { this.path = null; this.n = 0; this.ct = Math.round(ct); this.open(); },
+  open() { Object.assign(this, { t0: performance.now(), lastRx: 0, rx: 0, frames: 0, fz: 0, fzT: 0, gap: 0, hid: 0, buf: 0, png: [], ice: [], sw: this.path ? [[0, this.path]] : [] }); },
+  recv(now) {
+    if (this.lastRx) { const d = now - this.lastRx; if (d > NET_GAP) { this.fz++; this.fzT += d - NET_GAP; } if (d > this.gap) this.gap = d; }
+    this.lastRx = now; this.rx++;
+  },
+  setPath(sec, p) { if (p && p !== this.path) { this.path = p; if (this.sw.length < 8) this.sw.push([sec, p]); } },
+  // раз в секунду: пинг из игры, путь и пинг по самому соединению (getStats), очередь канала
+  async sample() {
+    if (!this.t0) return;
+    const sec = Math.round((performance.now() - this.t0) / 1000);
+    if (document.hidden) this.hid++;
+    const r = Net.role === 'host' ? (Net.lastHe ? Net.remoteRtt : 0) : Net.rtt; // у хозяина до первого эха там заглушка 0,1 с
+    if (r > 0 && this.png.length < 3600) this.png.push(Math.round(r * 1000));
+    const c = Net.transport && Net.transport.conn, pc = c && c.peerConnection;
+    if (c && c.dataChannel) this.buf = Math.max(this.buf, c.dataChannel.bufferedAmount | 0);
+    if (!pc || !pc.getStats) { this.setPath(sec, USE_LOCAL ? 'local' : null); return; }
+    try {
+      const st = await pc.getStats(), by = new Map(); let pair = null;
+      st.forEach(s => by.set(s.id, s));
+      st.forEach(s => { if (s.type === 'transport' && s.selectedCandidatePairId) pair = by.get(s.selectedCandidatePairId); });
+      if (!pair) st.forEach(s => { if (!pair && s.type === 'candidate-pair' && (s.selected || (s.nominated && s.state === 'succeeded'))) pair = s; }); // Firefox
+      if (!pair) return;
+      if (pair.currentRoundTripTime > 0 && this.ice.length < 3600) this.ice.push(Math.round(pair.currentRoundTripTime * 1000));
+      // relay-udp>srflx-udp — у меня ретранслятор по UDP, у друга внешний адрес; srflx-udp>srflx-udp — напрямую
+      const nm = x => !x ? '?' : x.candidateType === 'relay' ? 'relay-' + (x.relayProtocol || x.protocol || '?') : (x.candidateType || '?') + '-' + (x.protocol || '?');
+      this.setPath(sec, nm(by.get(pair.localCandidateId)) + '>' + nm(by.get(pair.remoteCandidateId)));
+    } catch (_) {}
+  },
+  // Итог окна и начало следующего. Ключи короткие: сводка уходит в базу вместе с матчем (net_stats.d, до 1500 байт)
+  take() {
+    const dur = Math.max(1, (performance.now() - this.t0) / 1000);
+    const q = (a, f) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(s.length * f))]; };
+    const d = { v: 1, r: Net.role === 'host' ? 'h' : 'g', n: ++this.n, dur: Math.round(dur), ct: this.ct, path: this.path, sw: this.sw,
+      png: this.png.length ? [q(this.png, 0.5), q(this.png, 0.95), Math.max(...this.png)] : null,
+      ice: this.ice.length ? [q(this.ice, 0.5), Math.max(...this.ice)] : null,
+      fz: this.fz, fzT: Math.round(this.fzT / 100) / 10, gap: Math.round(this.gap), rx: Math.round(this.rx / dur), fps: Math.round(this.frames / dur),
+      hid: this.hid, buf: this.buf, ua: uaShort() };
+    this.open();
+    return d;
+  },
+};
+NetStats.open();
 
 function randomCode() { let c = ''; for (let i = 0; i < 4; i++) c += CODE_ABC[Math.floor(Math.random() * CODE_ABC.length)]; return c; }
 
@@ -2393,12 +2454,14 @@ function netCallbacks() {
     },
     onConnect() {
       Net.connected = true; Net.lastRecv = performance.now();
+      // сколько соединялись: у гостя — от нажатия «Войти», у хозяина — от прихода гостя
+      NetStats.start(Net.lastRecv - (Net.role === 'guest' ? Net.joinAt : (Net.transport && Net.transport.connAt) || Net.lastRecv));
       clearTimeout(Net.joinTimer);
       startSync();
       if (Net.role === 'host') { clearInterval(Net.lobbyBeat); lobbyRemove(Net.code); startGame('online'); }
       else setNetStatus('Соединились, ждём начала…');
     },
-    onData(m) { Net.lastRecv = performance.now(); handleNet(m); },
+    onData(m) { Net.lastRecv = performance.now(); NetStats.recv(Net.lastRecv); handleNet(m); },
     onClose() { netLost(Net.role === 'host' ? 'Друг вышел из игры' : 'Друг закрыл комнату'); },
     onError(type) {
       if (type === 'unavailable-id' && Net.role === 'host' && Net.retries < 4) { Net.retries++; const tr = Net.transport; tr.close(); const nt = makeTransport(); Net.transport = nt; nt.host(randomCode(), netCallbacks()); return; }
@@ -2422,7 +2485,7 @@ function netJoin() {
   if (Net.role === 'guest' && Net.code === code) return; // уже входим сюда: повторный клик не начинает всё заново
   netClose();
   const tr = makeTransport(); if (!tr) return;
-  Net.role = 'guest'; Net.myIdx = 1; Net.transport = tr; Net.code = code; Net.savedCfg = { ...cfg };
+  Net.role = 'guest'; Net.myIdx = 1; Net.transport = tr; Net.code = code; Net.savedCfg = { ...cfg }; Net.joinAt = performance.now();
   setNetStatus('Подключаемся к комнате ' + code + '…');
   tr.join(code, netCallbacks());
   Net.joinTimer = setTimeout(() => { if (!Net.connected && Net.role === 'guest') netFail('Комната не ответила за 15 секунд: друг её закрыл или уже играет с другим. Проверь код и попробуй ещё раз.'); }, 15000);
@@ -2575,7 +2638,7 @@ function applyFx(type, a) {
     case 'floor': sndFloor(); break;
     case 'point': sndPoint(game.mode === '2p' || a[0] === localIdx()); break;
     case 'recover': if (Net.role === 'guest' && a[0] === Net.myIdx) P[a[0]].recover = a[1]; break;
-    case 'match': addRecs([a[0]]); cloudSync(); break;
+    case 'match': if (Net.connected && a[0] && PID.test(String(a[0].a))) store.net[a[0].id] = NetStats.take(); addRecs([a[0]]); cloudSync(); break;
     case 'react': if (REACTS[a[1]]) { game.bubbles = (game.bubbles || []).filter(b => b.idx !== a[0]); game.bubbles.push({ idx: a[0], text: REACTS[a[1]], t: 0 }); if (canSound()) tone(880, 1320, 0.06, 0.12, 'sine'); } break;
     case 'mark': game.mark = { x: a[0], out: !!a[1], text: String(a[2]).slice(0, 40), lineX: a[3], t: 0 }; break;
   }
@@ -2623,6 +2686,8 @@ profile.name = cleanName(profile.name);
 }
 const store = { recs: [], names: {} };
 { const r = loadJSON('bdm-recs', []), n = loadJSON('bdm-names', {}), b = loadJSON('bdm-best', {}), ra = loadJSON('bdm-rally', {}), cl = loadJSON('bdm-cloud', []); if (Array.isArray(r)) store.recs = r; if (n && typeof n === 'object') store.names = n; store.best = b && typeof b === 'object' ? b : {}; store.rally = ra && typeof ra === 'object' ? ra : {}; store.cloud = new Set(Array.isArray(cl) ? cl.slice(-6000) : []); }
+// Сводки сети своих онлайн-матчей, ещё не ушедшие в базу (NetStats.take): id матча -> сводка
+store.net = (() => { const t = loadJSON('bdm-net', {}); return t && typeof t === 'object' && !Array.isArray(t) ? t : {}; })();
 store.train = (() => { const t = loadJSON('bdm-train', {}); return t && typeof t === 'object' ? t : {}; })();
 function noteTrain(pid, n) { if (!PID.test(pid) || !Number.isInteger(n) || n < 1 || n > 999) return false; if ((store.train[pid] || 0) >= n) return false; store.train[pid] = n; return true; }
 store.alias = (() => { const a = loadJSON('bdm-alias', {}); return a && typeof a === 'object' ? a : {}; })();
@@ -2631,7 +2696,8 @@ function canon(pid) { let p = pid; for (let i = 0; i < 5 && store.alias[p]; i++)
 function bestOf(pid, src) { let m = 0; for (const k in src) if (canon(k) === pid && src[k] > m) m = src[k]; return m; }
 function adoptAlias() { const c = canon(profile.pid); if (c !== profile.pid) { profile.pid = c; saveJSON('bdm-profile', profile); return true; } return false; }
 adoptAlias();
-function saveStore() { if (store.recs.length > 800) store.recs = store.recs.slice(-800); saveJSON('bdm-alias', store.alias); saveJSON('bdm-train', store.train); saveJSON('bdm-recs', store.recs); saveJSON('bdm-names', store.names); saveJSON('bdm-best', store.best); saveJSON('bdm-rally', store.rally); saveJSON('bdm-cloud', [...store.cloud].slice(-6000)); }
+function saveStore() { if (store.recs.length > 800) store.recs = store.recs.slice(-800); saveJSON('bdm-alias', store.alias); saveJSON('bdm-train', store.train); saveJSON('bdm-recs', store.recs); saveJSON('bdm-names', store.names); saveJSON('bdm-best', store.best); saveJSON('bdm-rally', store.rally); saveJSON('bdm-cloud', [...store.cloud].slice(-6000));
+  const nk = Object.keys(store.net); for (const k of nk.slice(0, Math.max(0, nk.length - 40))) delete store.net[k]; saveJSON('bdm-net', store.net); }
 function noteBest(pid, kmh) { if (!PID.test(pid) || !Number.isInteger(kmh) || kmh < 20 || kmh > 400) return false; if ((store.best[pid] || 0) >= kmh) return false; store.best[pid] = kmh; return true; }
 function noteFeet() { store.feet = store.feet || loadJSON('bdm-feet', {}); store.feet[profile.pid] = (store.feet[profile.pid] || 0) + 1; saveJSON('bdm-feet', store.feet); renderHello(); }
 function updateBest(kmh) { if (noteBest(profile.pid, kmh)) { saveStore(); renderHello(); renderStandings(); } }
@@ -2882,7 +2948,7 @@ async function cloudReq(path, opts = {}) {
 }
 const toRow = r => r.k === 'ai'
   ? { id: r.id, t: r.t, k: 'ai', p: r.p, lv: r.lv, win: r.win, s1: r.s[0], s2: r.s[1], a: null, b: null, w: null }
-  : { id: r.id, t: r.t, k: 'net', a: r.a, b: r.b, w: r.w, s1: r.s[0], s2: r.s[1], p: null, lv: null, win: null };
+  : { id: r.id, t: r.t, k: 'net', a: r.a, b: r.b, w: r.w, s1: r.s[0], s2: r.s[1], p: null, lv: null, win: null, ...(store.net[r.id] ? { net: store.net[r.id] } : {}) };
 const fromRow = x => x.k === 'ai'
   ? { id: x.id, t: Number(x.t), k: 'ai', p: x.p, lv: x.lv, win: !!x.win, s: [x.s1 | 0, x.s2 | 0] }
   : { id: x.id, t: Number(x.t), k: 'net', a: x.a, b: x.b, w: x.w, s: [x.s1 | 0, x.s2 | 0] };
@@ -2898,13 +2964,14 @@ const authBody = extra => JSON.stringify({ p_pid: profile.pid, p_pin: profile.pi
 function dropAuth() { profile.acc = false; delete profile.pin; saveJSON('bdm-profile', profile); } // ПИН больше не подходит — спросим заново
 async function cloudPush() {
   if (!canWrite()) return;
-  const pending = store.recs.filter(r => !store.cloud.has(r.id)).slice(-200);
+  // матч уже в базе (его записал друг), а своя сводка сети ещё нет — отправляем снова, база добавит только сводку
+  const pending = store.recs.filter(r => !store.cloud.has(r.id) || store.net[r.id]).slice(-200);
   const res = await cloudReq('rpc/bdm_sync', { method: 'POST', body: authBody({ p_matches: pending.map(toRow),
     p_best: { smash: bestOf(profile.pid, store.best), rally: bestOf(profile.pid, store.rally), train: bestOf(profile.pid, store.train) } }) });
   // чужие матчи база пропускает — их запишут сами участники. Матч с умным база без миграции 20261118 тоже пропустит:
   // такой оставляем в очереди и отправим снова
   const skipped = new Set(res && Array.isArray(res.skipped) ? res.skipped : []);
-  if (res && res.ok) pending.forEach(r => { if (!(r.lv === 'smart' && skipped.has(r.id))) store.cloud.add(r.id); });
+  if (res && res.ok) pending.forEach(r => { if (!(r.lv === 'smart' && skipped.has(r.id))) store.cloud.add(r.id); delete store.net[r.id]; });
   else if (res && (res.err === 'pin' || res.err === 'noacc')) dropAuth();
 }
 async function cloudSync() {
@@ -3350,7 +3417,7 @@ function frame(now) {
 
 // Для отладки и автотестов
 window.__bdm = {
-  game, P, sh, cfg, simulate, Net, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact,
+  game, P, sh, cfg, simulate, Net, NetStats, store, profile, standings, CLOUD, cloudSync, STYLES, openRules, rShow, renderLobby, sendReact,
   DIFFS, READ, readReset() { readMem = null; for (const p of P) if (p.ai) p.ai.read = null; game.stats.read = null; },
   fastForward(sec) { const n = Math.round(sec / H); for (let i = 0; i < n && game.state !== 'over'; i++) step(H); game.hitstop = 0; },
 };
