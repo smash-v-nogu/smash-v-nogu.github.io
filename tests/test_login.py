@@ -47,6 +47,8 @@ def handle(route):
         body = ([{'from_pid': k, 'to_pid': v} for k, v in aliases.items()] if '/aliases' in u
                 else matches if '/matches' in u else list(players.values()) if '/players' in u else [])
         return route.fulfill(status=200, content_type='application/json', body=json.dumps(body))
+    if '/functions/v1/turn' in u:  # ключи ретранслятора — не запись в базу
+        return route.fulfill(status=500, body='')
     direct.append(req.method + ' ' + u.split('/rest/v1/')[-1])  # прямая запись в таблицу — в настоящей базе закрыта
     return route.fulfill(status=401, content_type='application/json', body='{"code":"42501"}')
 

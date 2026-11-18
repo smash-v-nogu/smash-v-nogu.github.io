@@ -22,6 +22,8 @@ def shot(page, name):
 
 def read_only(route):
     r = route.request
+    if '/functions/v1/turn' in r.url:  # ключи ретранслятора из настоящей функции: в базу она не пишет
+        return route.continue_()
     if r.method not in ('GET', 'HEAD', 'OPTIONS'):
         blocked.append(r.method + ' ' + r.url.split('/rest/v1/')[-1][:60]); return route.abort()
     got.add(r.url.split('/rest/v1/')[-1].split('?')[0])
@@ -30,6 +32,8 @@ def read_only(route):
 
 def fake(route):
     req = route.request; u = req.url
+    if '/functions/v1/turn' in u:
+        return route.continue_()
     if '/rpc/bdm_login' in u:
         b = json.loads(req.post_data)
         return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'pid': b['p_pid'], 'name': b['p_name'], 'mode': 'new'}))

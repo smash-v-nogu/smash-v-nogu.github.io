@@ -2253,6 +2253,33 @@ setInterval(() => { if (Net.connected && game.mode === 'online') { Net.role === 
 
 function randomCode() { let c = ''; for (let i = 0; i < 4; i++) c += CODE_ABC[Math.floor(Math.random() * CODE_ABC.length)]; return c; }
 
+/* Ретранслятор (TURN). Напрямую соединяются не все пары сетей: мобильный интернет, VPN, рабочий Wi‑Fi часто
+   не пускают. Тогда трафик идёт через TURN Cloudflare. Временные ключи выдаёт функция Supabase `turn`
+   (supabase/functions/turn), сам ключ Cloudflare хранится только в ней. Публичных TURN PeerJS, на которые
+   игра полагалась раньше, больше нет (18.11.2026): без своего ретранслятора гость висел на «Подключаемся…».
+   Функция не ответила — играем как раньше, только напрямую. */
+const ICE_BASE = [{ urls: 'stun:stun.l.google.com:19302' }];
+let iceCache = null; // { list, until } или { wait: Promise }
+function iceServers() {
+  if (iceCache && iceCache.list && Date.now() < iceCache.until) return Promise.resolve(iceCache.list);
+  if (iceCache && iceCache.wait) return iceCache.wait;
+  if (!cloudOn() || USE_LOCAL) return Promise.resolve(ICE_BASE);
+  const ask = fetch(CLOUD.url + '/functions/v1/turn', { method: 'POST', headers: { apikey: CLOUD.key } })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => {
+      const list = j && Array.isArray(j.iceServers) ? j.iceServers.filter(s => s && s.urls) : [];
+      if (!list.some(s => [].concat(s.urls).some(u => /^turns?:/.test(u)))) throw new Error('no turn');
+      // ключи живут ttl секунд; берём новые, когда прошла половина срока
+      iceCache = { list: ICE_BASE.concat(list), until: Date.now() + Math.max(600, +j.ttl || 3600) * 500 };
+      return iceCache.list;
+    });
+  const wait = Promise.race([ask, new Promise((_, no) => setTimeout(() => no(new Error('slow')), 3000))])
+    .catch(() => { iceCache = null; return ICE_BASE; });
+  iceCache = { wait };
+  return wait;
+}
+const peerOpts = list => ({ debug: 1, config: { iceServers: list } });
+
 function peerTransport() {
   return {
     closed: false,
@@ -2261,13 +2288,28 @@ function peerTransport() {
       let opened = false;
       conn.on('open', () => { if (this.conn !== conn) return; opened = true; cb.onConnect(); });
       conn.on('data', d => { if (this.conn === conn) cb.onData(d); });
-      // вытесненное соединение молчит; у хоста гость, который так и не дошёл, комнату не закрывает — ждём дальше
-      const gone = () => { if (this.closed || this.conn !== conn) return; if (this.isHost && !opened) { this.conn = null; return; } cb.onClose(); };
+      // вытесненное соединение молчит; у хоста гость, который так и не дошёл, комнату не закрывает — ждём дальше.
+      // Гость, у которого соединение сорвалось до открытия, — это не «друг закрыл комнату», а сеть: говорим как есть.
+      const gone = () => {
+        if (this.closed || this.conn !== conn) return;
+        if (this.isHost && !opened) { this.conn = null; return; }
+        if (!opened) { cb.onError(this.stage()); return; }
+        cb.onClose();
+      };
       conn.on('close', gone);
       conn.on('error', gone);
     },
+    // Докуда дошло подключение гостя: сервер соединений (server), ждём ответа хозяина (answer), сети ищут путь (ice)
+    stage() {
+      if (!this.peer || !this.peer.open && !this.conn) return 'server';
+      const pc = this.conn && this.conn.peerConnection;
+      return pc && pc.remoteDescription ? 'ice' : 'answer';
+    },
     host(code, cb) {
-      const peer = new window.Peer(PEER_PREFIX + code, { debug: 1 });
+      iceServers().then(list => { if (!this.closed) this.hostWith(list, code, cb); });
+    },
+    hostWith(list, code, cb) {
+      const peer = new window.Peer(PEER_PREFIX + code, peerOpts(list));
       this.peer = peer;
       peer.on('open', () => cb.onOpen(code));
       this.isHost = true;
@@ -2289,7 +2331,10 @@ function peerTransport() {
       peer.on('disconnected', () => { if (!this.closed) { try { peer.reconnect(); } catch (_) {} } });
     },
     join(code, cb) {
-      const peer = new window.Peer({ debug: 1 });
+      iceServers().then(list => { if (!this.closed) this.joinWith(list, code, cb); });
+    },
+    joinWith(list, code, cb) {
+      const peer = new window.Peer(peerOpts(list));
       this.peer = peer;
       peer.on('open', () => this.wire(peer.connect(PEER_PREFIX + code, { reliable: false, serialization: 'json', metadata: { pid: profile.pid } }), cb));
       peer.on('error', err => { if (!this.closed) cb.onError(err && err.type || 'error'); });
@@ -2357,12 +2402,17 @@ function netCallbacks() {
     onClose() { netLost(Net.role === 'host' ? 'Друг вышел из игры' : 'Друг закрыл комнату'); },
     onError(type) {
       if (type === 'unavailable-id' && Net.role === 'host' && Net.retries < 4) { Net.retries++; const tr = Net.transport; tr.close(); const nt = makeTransport(); Net.transport = nt; nt.host(randomCode(), netCallbacks()); return; }
-      const msg = type === 'peer-unavailable' ? 'Комната не найдена. Проверь код: друг должен держать её открытой.'
-        : type === 'browser-incompatible' ? 'Этот браузер не умеет WebRTC. Попробуй Chrome, Safari или Firefox.'
-        : 'Не удалось подключиться к серверу соединений. Проверь интернет и попробуй ещё раз.';
-      netFail(msg + (document.body.classList.contains('touch') ? ' Если ссылка открыта внутри Telegram или Instagram, открой её в Safari или Chrome.' : ''));
+      netFail(netErrText(type));
     },
   };
+}
+function netErrText(type) {
+  const msg = type === 'peer-unavailable' ? 'Комната не найдена. Проверь код: друг должен держать её открытой.'
+    : type === 'browser-incompatible' ? 'Этот браузер не умеет WebRTC. Попробуй Chrome, Safari или Firefox.'
+    : type === 'ice' ? 'Комната есть, но ваши сети не смогли соединиться. Попробуйте выключить VPN или сменить сеть: мобильный интернет на Wi‑Fi или наоборот.'
+    : type === 'answer' ? 'Друг не отвечает: похоже, его вкладка с игрой закрыта или телефон уснул. Пусть откроет игру и создаст комнату заново.'
+    : 'Не удалось подключиться к серверу соединений. Проверь интернет и попробуй ещё раз.';
+  return msg + (document.body.classList.contains('touch') ? ' Если ссылка открыта внутри Telegram или Instagram, открой её в Safari или Chrome.' : '');
 }
 function netHost() {
   netClose();
@@ -2379,7 +2429,11 @@ function netJoin() {
   Net.role = 'guest'; Net.myIdx = 1; Net.transport = tr; Net.code = code; Net.savedCfg = { ...cfg };
   setNetStatus('Подключаемся к комнате ' + code + '…');
   tr.join(code, netCallbacks());
-  Net.joinTimer = setTimeout(() => { if (!Net.connected && Net.role === 'guest') netFail('Не получилось соединиться за 15 секунд. Проверь код и попробуй ещё раз.'); }, 15000);
+  // 15 с без соединения: говорим, на каком шаге застряли, а не общее «не получилось»
+  Net.joinTimer = setTimeout(() => {
+    if (Net.connected || Net.role !== 'guest') return;
+    netFail(Net.transport && Net.transport.stage ? netErrText(Net.transport.stage()) : 'Не получилось соединиться за 15 секунд. Проверь код и попробуй ещё раз.');
+  }, 15000);
 }
 function netClose() {
   clearInterval(Net.lobbyBeat);
@@ -3317,6 +3371,7 @@ function start(data) {
   window.addEventListener('beforeunload', () => { if (Net.role) netClose(); });
   window.addEventListener('pagehide', () => { if (Net.role === 'host' && !Net.connected && Net.code) lobbyRemove(Net.code); });
   renderHello(); renderStandings(); renderDiffNote(); renderFoot(); cloudSync(); lobbyRefresh();
+  if (!inClaude() && !USE_LOCAL) setTimeout(iceServers, 1500); // ключи ретранслятора заранее: комната создаётся без лишнего ожидания
   if (/Instagram|FBAN|FBAV|FB_IAB|Line\/|VKClient|Telegram|; wv\)/i.test(navigator.userAgent)) $('inapp').hidden = false;
   if (!profile.name || (cloudOn() && !profile.acc)) openNameDlg();
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });

@@ -9,6 +9,7 @@ cd tests
 python3 test_login.py            # вход по имени и ПИН
 python3 test_online.py           # онлайн через BroadcastChannel
 python3 test_peer_rejoin.py      # настоящий PeerJS: призрак и вторая вкладка не занимают комнату (нужен интернет)
+python3 test_turn.py             # ретранслятор: ключи от функции turn, без неё — напрямую, сбой сети назван честно (нужен интернет, около минуты)
 python3 test_training.py         # тренировка с многоволанкой (идёт пару минут)
 python3 test_length.py           # длина партии «до 7 / до 15», в сети её задаёт хозяин
 python3 test_ai_balance.py       # баланс ИИ на ускоренной симуляции (около минуты)
