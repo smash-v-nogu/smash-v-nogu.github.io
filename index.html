@@ -2275,7 +2275,7 @@ const Net = {
     clearInterval(this.syncIv);
     Object.assign(this, { peerPid: null, peerName: '', peerStyle: null, syncIv: null, role: null, myIdx: 0, transport: null, connected: false, code: '', outN: 0, lastInN: 0, lastSnapN: 0,
       evSeq: 0, events: [], eventAck: 0, lastEv: 0, shotSeq: 0, shotKey: null, lastShotSeq: 0, posEpoch: -1,
-      againSeq: 0, lastAg: 0, lobbyBeat: null, reactSeq: 0, reactI: 0, lastRq: 0, lastReact: 0, rtt: 0, remoteRtt: 0.1, lastTs: 0, lastRecv: 0, lastSend: 0, lastPing: 0, joinTimer: null, savedCfg: null, retries: 0 });
+      againSeq: 0, lastAg: 0, lobbyBeat: null, reactSeq: 0, reactI: 0, lastRq: 0, lastReact: 0, rtt: 0, remoteRtt: 0.1, lastTs: 0, lastHs: 0, lastHe: 0, lastRecv: 0, lastSend: 0, lastPing: 0, joinTimer: null, savedCfg: null, retries: 0 });
   },
   lagGame() { return clamp(this.remoteRtt || 0.1, 0.02, 0.3) * cfg.timeScale; },
   send(m) { if (this.transport && this.connected) this.transport.send(m); },
@@ -2325,7 +2325,7 @@ function peerTransport() {
         if (!free) { conn.on('open', () => { try { conn.send({ t: 'busy' }); } catch (_) {} setTimeout(() => conn.close(), 400); }); return; }
         if (cur) { // новичку — свежие 10 с до «связь потеряна» и счётчики с нуля: у новой вкладки своя нумерация ударов и реакций
           this.conn = null; try { cur.close(); } catch (_) {}
-          Object.assign(Net, { lastRecv: performance.now(), lastInN: 0, lastShotSeq: 0, lastAg: 0, lastRq: 0, lastTs: 0, eventAck: 0 });
+          Object.assign(Net, { lastRecv: performance.now(), lastInN: 0, lastShotSeq: 0, lastAg: 0, lastRq: 0, lastTs: 0, lastHe: 0, eventAck: 0 });
         }
         this.guestPid = pid; this.connAt = now;
         this.wire(conn, cb);
@@ -2463,7 +2463,7 @@ function sendSnapshot() {
     s: [r3(sh.x), r3(sh.y), r3(sh.vx), r3(sh.vy), sh.held ? 1 : 0, sh.inPlay ? 1 : 0, r3(sh.ang), sh.netHit ? 1 : 0, sh.lastHitter ? sh.lastHitter.idx : -1, sh.predLand == null ? null : r2(sh.predLand)],
     g: [game.state, game.score[0], game.score[1], game.server, game.rallyHits, game.over, game.posEpoch, game.target], id: profile.pid, nm: profile.name, sy: profile.style,
     c: [cfg.timeScale, cfg.runSpeed, cfg.reach, cfg.vTerm],
-    ev: Net.events.filter(e => e[0] > Net.eventAck), rt: Net.lastTs,
+    ev: Net.events.filter(e => e[0] > Net.eventAck), rt: Net.lastTs, hs: performance.now(),
   });
 }
 function onGuestInput(m) {
@@ -2480,7 +2480,12 @@ function onGuestInput(m) {
   if (m.sq > Net.lastShotSeq) { Net.lastShotSeq = m.sq; if (['clear', 'drop', 'smash'].includes(m.sk)) p.shotReq = m.sk; }
   if (m.ag > Net.lastAg) { Net.lastAg = m.ag; if (game.state === 'over') restart(); }
   if (m.rq > Net.lastRq) { Net.lastRq = m.rq; if (m.ri >= 0 && m.ri < REACTS.length) fx('react', 1, m.ri | 0); }
-  if (Number.isFinite(m.rtt) && m.rtt > 0) Net.remoteRtt = clamp(m.rtt, 0, 1);
+  // пинг гостя хозяин меряет сам: гость возвращает метку времени из последнего снимка (he). Цифру гостя (раньше m.rtt)
+  // не берём — её меняли из консоли и расширяли себе окно удара (Net.lagGame)
+  if (Number.isFinite(m.he) && m.he > Net.lastHe) {
+    const first = !Net.lastHe, smp = (performance.now() - m.he) / 1000; Net.lastHe = m.he;
+    if (smp > 0 && smp < 3) Net.remoteRtt = first ? smp : lerp(Net.remoteRtt, smp, 0.15);
+  }
   Net.lastTs = m.ts; Net.eventAck = Math.max(Net.eventAck, m.ea | 0);
 }
 
@@ -2488,7 +2493,7 @@ function onGuestInput(m) {
 function sendInput() {
   const me = P[Net.myIdx];
   Net.send({ t: 'in', n: ++Net.outN, x: r3(me.x), y: r3(me.y), vx: r2(me.vx), vy: r2(me.vy), g: me.onGround ? 1 : 0,
-    ep: Net.posEpoch, sq: Net.shotSeq, sk: Net.shotKey, ag: Net.againSeq, rq: Net.reactSeq, ri: Net.reactI, ea: Net.lastEv, ts: performance.now(), rtt: r3(Net.rtt), id: profile.pid, nm: profile.name, sy: profile.style, ax: me.axis });
+    ep: Net.posEpoch, sq: Net.shotSeq, sk: Net.shotKey, ag: Net.againSeq, rq: Net.reactSeq, ri: Net.reactI, ea: Net.lastEv, ts: performance.now(), he: Net.lastHs, id: profile.pid, nm: profile.name, sy: profile.style, ax: me.axis });
 }
 function guestAction(p, act) {
   if (act === 'jump') { p.jumpReq = 0.12; return; }
@@ -2538,6 +2543,7 @@ function onSnapshot(m) {
   if (sh.held && !wasHeld) sh.trail = [];
   for (const e of m.ev || []) if (e[0] > Net.lastEv) { Net.lastEv = e[0]; applyFx(e[1], e.slice(2)); }
   if (m.rt) { const smp = (performance.now() - m.rt) / 1000; if (smp > 0 && smp < 3) Net.rtt = Net.rtt ? lerp(Net.rtt, smp, 0.15) : smp; }
+  if (Number.isFinite(m.hs)) Net.lastHs = m.hs; // вернём хозяину в своём вводе: по нему он меряет пинг
 }
 let gacc = 0;
 function guestTick(dt) {
