@@ -332,8 +332,10 @@ body.touch .rules-cta { max-width: none; }
 @media (min-width: 720px) {
   .menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "ai net" "train net" "lb lb" "keys keys"; }
   /* Карточка сети выше соседних, и кнопки прижаты к низу. Место под статус держим заранее: иначе «Подключаемся…»
-     поднимает лобби и кнопки, и под курсором вместо комнаты друга оказывается «Создать комнату» */
-  .t-net .net-status, .t-net .net-status:empty { display: block; min-height: 4.5em; }
+     сдвигает лобби и кнопки, и под курсором вместо комнаты друга оказывается «Создать комнату».
+     Статус стоит над лобби, а не под кнопками: так кнопки внизу карточки, вровень с соседними */
+  .t-net .net-status, .t-net .net-status:empty { display: block; min-height: 4.5em; order: 1; }
+  .t-net > .tile-foot { order: 2; }
 }
 @media (min-width: 1080px) {
   .menu-grid { grid-template-columns: 1fr 1fr 1.2fr; grid-template-areas: "ai net lb" "train net lb" "keys keys lb"; }
@@ -452,7 +454,10 @@ body.touch .rules-cta { max-width: none; }
   .lb td:nth-child(4) { border-radius: 0 9px 9px 0; padding-right: 10px; }
 }
 /* Таблица: все игроки, лишние строки прокручиваются внутри плиты; шапка и твоя строка прилипают к краям */
-.lb-scroll { min-height: 0; max-height: 336px; overflow-y: auto; overflow-x: hidden; margin: 0 -6px; padding: 0 6px; overscroll-behavior: auto; scrollbar-width: thin; scrollbar-color: #2b3d3f transparent; }
+/* Нижний зазор под последней строкой гасит сама прокрутка, а не таблица: отрицательный низ у таблицы
+   вылезал за край на 6 px, и полоса прокрутки появлялась, даже когда все строки влезали */
+.lb-scroll table { margin-bottom: 0; }
+.lb-scroll { min-height: 0; max-height: 336px; overflow-y: auto; overflow-x: hidden; margin: 0 -6px -6px; padding: 0 6px; overscroll-behavior: auto; scrollbar-width: thin; scrollbar-color: #2b3d3f transparent; }
 .lb-scroll thead th { position: sticky; top: 0; z-index: 2; background: #0a1012; box-shadow: 0 -6px 0 #0a1012; }
 .lb-scroll tr.me td { position: sticky; top: 21px; bottom: 0; z-index: 1; box-shadow: 0 -6px 0 #0a1012, 0 6px 0 #0a1012; }
 .lb-scroll tr.me td.rank, .lb-scroll tr.me td:last-child { box-shadow: inset 0 0 0 1px var(--plate-edge), 0 -6px 0 #0a1012, 0 6px 0 #0a1012; }
