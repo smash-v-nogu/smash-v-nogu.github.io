@@ -3283,6 +3283,7 @@ function rShot(kind, cx, cy) {
     case 'smash': sol = solveAngle(cx, cy, 1, T(3.6), 62, 0.04); break;
     case 'smashFeet': sol = solveAngle(cx, cy, 1, T(2.4), 64, 0.04); break;
     case 'smashCharged': sol = solveAngle(cx, cy, 1, T(3.3), 62 * CHARGE_SPEED, 0.04); break;
+    case 'kill': sol = solveAngle(cx, cy, 1, T(2.2), 34, 0.03); break;
     case 'lift': sol = solveFixed(cx, cy, 1, T(5.9), [58, 52, 46, 40, 64, 70, 76], 80); break;
     case 'net': sol = solveFlat(cx, cy, 1, T(0.5), 12, 0.03, -10, 85); break;
     case 'serveHigh': sol = solveFixed(cx, cy, 1, T(6.35), [64, 60, 56, 52, 48], 75); break;
@@ -3318,6 +3319,10 @@ function buildDemo(kind) {
       mkShot({ px: NET - SHORT - 1.25, cx: NET - SHORT - 0.83, cy: 0.95, serve: true, shot: 'serveShort', key: 'E', label: 'Короткая подача', hit: 0.8 }) ] };
     case 'score': return { score: { a: '14', b: '12', w: '15' }, list: [mkShot({ px: 3.1, cx: 3.4, cy: 2.95, jump: true, shot: 'smash', key: 'S', pre: 'W', label: 'Смэш', over: true })] };
     case 'score7': return { score: { a: '6', b: '4', w: '7' }, list: [mkShot({ px: 3.1, cx: 3.4, cy: 2.95, jump: true, shot: 'smash', key: 'S', pre: 'W', label: 'Смэш', over: true })] };
+    // добивание: соперник отдал высокую сетку — бьёшь коротко вниз; тугая сетка ниже троса — только ответная сетка
+    case 'kill': return { view: { x: NET + 0.3, w: 9.5, h: 4.8 }, list: [
+      mkShot({ px: NET - 0.78, cx: NET - 0.42, cy: 1.82, from: [NET + 1.0, 1.0, NET + 0.15, 2.6], zone: true, shot: 'kill', key: 'S', label: 'Добивание', over: true, hit: 1.2, opp: 1.5 }),
+      mkShot({ px: NET - 1.3, cx: NET - 0.6, cy: 0.72, from: [NET + 1.0, 0.8, NET + 0.1, 2.55], zone: true, lunge: true, low: true, shot: 'net', key: 'E', label: 'Ниже троса · только сетка', hit: 1.2, opp: 1.1 }) ] };
     // заряд: три чистых удара подряд, четвёртый — заряженный смэш в ноги
     case 'charge': return { charge: true, list: [
       mkShot({ ...deep, shot: 'clearPerfect', key: 'Q', label: 'Чисто · 1', over: true, sweet: true, hit: 0.75, play: 1.7, tail: 0.35 }),
@@ -3402,6 +3407,19 @@ function rShotFrame(c, sd, t, extra = {}) {
   const px = sd.lunge ? sd.px : sd.px;
   let arm = swingArm((t - (H0 - 0.1)) / 0.36, !!sd.over);
   if (arm === null || t < H0 - 0.1) arm = sd.low ? -60 : sd.serve ? -70 : 112;
+  // зона добивания: выше линии от троса (+KILL_UP) с подъёмом KILL_SLOPE на метр, ниже 1,9 м — как killZone в игре
+  if (sd.zone) {
+    const y0 = NET_H + KILL_UP, dz = (1.9 - y0) / KILL_SLOPE;
+    c.fillStyle = 'rgba(255,106,61,0.2)'; c.beginPath(); c.moveTo(RX(NET), RY(y0)); c.lineTo(RX(NET - dz), RY(1.9)); c.lineTo(RX(NET), RY(1.9)); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(255,106,61,0.55)'; c.lineWidth = 1.5; c.setLineDash([4, 4]); c.beginPath(); c.moveTo(RX(NET), RY(y0)); c.lineTo(RX(NET - dz), RY(1.9)); c.stroke(); c.setLineDash([]);
+    // подпись — в углу кадра, чтобы не закрывать волан; на узком кадре её место занимают клавиши
+    if (rW > 440) {
+    const fs = Math.max(10, rS * 0.15), lx = rW - 14, ly = 14 + fs;
+    c.font = `700 ${fs}px ${FD}`; c.textAlign = 'right'; c.fillStyle = 'rgba(255,106,61,0.9)'; c.fillText('ЗОНА ДОБИВАНИЯ', lx, ly);
+    const tw = c.measureText('ЗОНА ДОБИВАНИЯ').width, sx = lx - tw - 8;
+    c.fillStyle = 'rgba(255,106,61,0.35)'; c.beginPath(); c.moveTo(sx, ly - fs * 0.8); c.lineTo(sx - fs * 1.6, ly); c.lineTo(sx, ly); c.closePath(); c.fill();
+    }
+  }
   rDrawPlayer(c, px, py, arm, { lunge: ln, sta: extra.sta, dots: extra.dots });
   // соперник-призрак
   rDrawPlayer(c, NET + (sd.opp ?? 3.3) + (extra.oppShift || 0), 0, 108, { color: COLORS.p2, alpha: 0.35, face: -1 });
@@ -3433,7 +3451,7 @@ function rShotFrame(c, sd, t, extra = {}) {
   c.strokeStyle = 'rgba(255,215,138,0.5)'; c.lineWidth = 2; c.beginPath();
   for (let i = 0; i <= idx; i += 2) { const q = sd.pts[i]; i ? c.lineTo(RX(q.x), RY(q.y)) : c.moveTo(RX(q.x), RY(q.y)); }
   c.stroke();
-  if (t - H0 < 0.8) rLabel(c, sd.label + (sd.shot.startsWith('smash') ? ' · ' + sd.kmh + ' км/ч' : ''), sd.cx + 0.6, sd.cy + 0.75, sd.sweet ? COLORS.lamp : sd.early ? '#ff9a7a' : COLORS.p1, 0.24);
+  if (t - H0 < 0.8) rLabel(c, sd.label + (sd.shot.startsWith('smash') || sd.shot === 'kill' ? ' · ' + sd.kmh + ' км/ч' : ''), sd.cx + 0.6, sd.cy + 0.75, sd.sweet ? COLORS.lamp : sd.early ? '#ff9a7a' : COLORS.p1, 0.24);
   if (g < sd.flight) {
     const q = sd.pts[idx], q0 = sd.pts[Math.max(0, idx - 2)];
     rDrawShuttle(c, q.x, q.y, Math.atan2(q.y - q0.y, q.x - q0.x));
@@ -3579,6 +3597,12 @@ window.addEventListener('resize', () => { if (!$('rules').hidden) rResize(); });
    demo — анимация из buildDemo (для ударов и механик), keys — клавиши над анимацией.
    Кто вернулся и не видел свежее обновление, получает окно при входе в меню; новичку вместо него — правила. */
 const NEWS = [
+  { id: '2026-11-18b', date: '18 ноября, вечер', items: [ // id и date — по дню выкатки релиза
+    { tag: 'Удар', t: 'Добивание у сетки', s: 'Волан у сетки выше троса — смэш бьёт его коротко и круто вниз', demo: 'kill', keys: ['S', 'E'],
+      d: '<p>Если волан у самой сетки идёт <b>выше троса</b>, <kbd>S</kbd> бьёт его коротко и круто вниз. Чем ближе к сетке, тем ниже волан можно добить.</p><p>Сетка с плохого контакта или из-под самого пола выходит высокой — соперник её добьёт. Тугую сетку ниже троса не добить — отвечай сеткой: <kbd>E</kbd> снизу.</p>' },
+    { tag: 'ИИ', t: 'ИИ играет тактичнее', s: 'Под давлением реже свечит, у сетки бьёт тугую сетку, на смэш отвечает блоком',
+      d: '<p>Средний, сложный и умный под давлением реже отдают высокий волан. У сетки отвечают тугой сеткой, на смэш — блоком или драйвом. Однообразный дроп против них больше не выигрывает.</p>' },
+  ] },
   { id: '2026-11-18', date: '18 ноября', items: [
     { tag: 'ИИ', t: 'Уровень «Умный»', s: 'Запоминает твои привычки и заранее встаёт туда, куда ты бьёшь',
       d: '<p>Бегает и бьёт как сложный, но следит, чем ты отвечаешь в каждой ситуации. Когда уверен, заранее смещается туда, куда ты ударишь, и показывает «Читаю тебя».</p><p>Против однообразной игры он заметно сильнее сложного. Меняй удары — и прогноз ему не поможет. Память о тебе переходит в следующую партию.</p>' },
