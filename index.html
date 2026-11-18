@@ -331,6 +331,9 @@ body.touch .rules-cta { max-width: none; }
 .t-keys .touch-note { flex: 1 1 100%; }
 @media (min-width: 720px) {
   .menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "ai net" "train net" "lb lb" "keys keys"; }
+  /* Карточка сети выше соседних, и кнопки прижаты к низу. Место под статус держим заранее: иначе «Подключаемся…»
+     поднимает лобби и кнопки, и под курсором вместо комнаты друга оказывается «Создать комнату» */
+  .t-net .net-status, .t-net .net-status:empty { display: block; min-height: 4.5em; }
 }
 @media (min-width: 1080px) {
   .menu-grid { grid-template-columns: 1fr 1fr 1.2fr; grid-template-areas: "ai net lb" "train net lb" "keys keys keys"; }
@@ -738,9 +741,15 @@ const styleOf = p => STYLES[p.style] || STYLES.tech;
 // соперника и в рекорд скорости не идёт. «Перехват»: чистый отбой смэша не свечой — давление переходит на смэшиста.
 const CHARGE_N = 3, CHARGE_WINDOW = 0.7, CHARGE_SPEED = 1.06, COUNTER_PRESS = 0.3;
 const FEET = 0.5; // «В ногу!»: выигрышный смэш упал ближе полуметра от ног соперника
+// Добивание у сетки: смэш по волану ниже 1,9 м, который ещё выше троса на KILL_UP + KILL_SLOPE·(расстояние до сетки).
+// Чистая сетка, взятая высоко, и острый дроп проходят ниже этой линии. Сетка с плохого контакта или из-под самого пола
+// (NET_LOW_UP) и обычный дроп — выше: соперник, который стоит у сетки, их добьёт
+const KILL_UP = 0.08, KILL_SLOPE = 0.25, NET_LOW_UP = 0.1;
+const killZone = (x, y) => y < 1.9 && y >= NET_H + KILL_UP + Math.abs(x - NET) * KILL_SLOPE;
+const isAttack = v => v === 'smash' || v === 'kill';
 const reachOf = p => cfg.reach + styleOf(p).reach - Math.max(0, 0.3 - p.sta) * 0.4;
 const PLACE_LABEL = { 'clear-1': 'Глубокий клир', 'clear1': 'Атакующий клир', 'lift-1': 'Глубокая свеча', 'drop1': 'Острый дроп', 'drop-1': 'Длинный дроп', 'net1': 'Тугая сетка', 'smash1': 'Смэш в ноги', 'smash-1': 'Смэш на заднюю', 'drive1': 'Короткий драйв' };
-const SHOT_LABEL = { clear: 'Клир', lift: 'Свеча', drop: 'Дроп', net: 'Сетка', block: 'Блок', smash: 'Смэш', drive: 'Драйв', high: 'Высокая подача', short: 'Короткая подача', flick: 'Флик' };
+const SHOT_LABEL = { clear: 'Клир', lift: 'Свеча', drop: 'Дроп', net: 'Сетка', block: 'Блок', smash: 'Смэш', kill: 'Добивание', drive: 'Драйв', high: 'Высокая подача', short: 'Короткая подача', flick: 'Флик' };
 const COLORS = { p1: '#ff6a3d', p2: '#3cc3e6', lamp: '#ffd78a', line: '#f1eee4', ink: '#e8efe9', muted: '#8ba49a' };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -781,24 +790,30 @@ function solveSpeed(x0, y0, dir, ang, tx, sMax) {
   const sp = (lo + hi) / 2;
   return { speed: sp, res: simulate(x0, y0, dir * c * sp, s * sp), reached: true };
 }
+// Прошёл ли волан над сеткой с запасом. Удар, взятый над самым тросом (canHit пускает на 4 см за сетку),
+// сетку уже не пересекает: тогда netY нет, и это не ошибка — иначе решатель задирал угол и добивание улетало в аут
+const overNet = (res, x0, dir, margin) => res.netY === null ? (x0 - NET) * dir >= 0 : res.netY >= NET_H + margin;
 // Высокие удары: первый угол из списка, с которым долетаем
 function solveFixed(x0, y0, dir, tx, angles, sMax) {
   let fallback = null;
   for (const a of angles) {
     const r = solveSpeed(x0, y0, dir, a * DEG, tx, sMax);
-    const clears = r.res.netY !== null && r.res.netY > NET_H + 0.1;
+    const clears = overNet(r.res, x0, dir, 0.1);
     if (r.reached && clears) return { ang: a * DEG, speed: r.speed };
     const cand = { ang: a * DEG, speed: r.speed, land: r.res.landX, clears };
     if (!fallback || (cand.clears && !fallback.clears) || (cand.clears === fallback.clears && (cand.land - fallback.land) * dir > 0)) fallback = cand;
   }
   return fallback;
 }
-// Плоские удары: самый низкий угол, при котором волан проходит над сеткой с запасом margin
-function solveFlat(x0, y0, dir, tx, sMax, margin, aMin, aMax) {
+// Плоские удары: самый низкий угол, при котором волан проходит над сеткой с запасом margin.
+// fine — уточнить угол до 0,5°: сетка с шагом 2,5° иногда шла на 15–50 см над тросом вместо пары сантиметров
+function solveFlat(x0, y0, dir, tx, sMax, margin, aMin, aMax, fine) {
+  const ok = r => r.reached && overNet(r.res, x0, dir, margin);
   for (let a = aMin; a <= aMax; a += 2.5) {
     const r = solveSpeed(x0, y0, dir, a * DEG, tx, sMax);
-    if (!r.reached) continue;
-    if (r.res.netY !== null && r.res.netY >= NET_H + margin) return { ang: a * DEG, speed: r.speed };
+    if (!ok(r)) continue;
+    if (fine) for (let b = Math.max(aMin, a - 2); b < a; b += 0.5) { const q = solveSpeed(x0, y0, dir, b * DEG, tx, sMax); if (ok(q)) return { ang: b * DEG, speed: q.speed }; }
+    return { ang: a * DEG, speed: r.speed };
   }
   return null;
 }
@@ -813,7 +828,7 @@ function solveAngle(x0, y0, dir, tx, speed, margin) {
   let ang = (lo + hi) / 2;
   for (let k = 0; k < 40; k++) {
     const r = simulate(x0, y0, dir * Math.cos(ang) * speed, Math.sin(ang) * speed);
-    if (r.netY !== null && r.netY >= NET_H + margin) break;
+    if (overNet(r, x0, dir, margin)) break;
     ang += 1.5 * DEG;
   }
   return { ang, speed };
@@ -839,6 +854,7 @@ const game = {
 function opponent(p) { return P[1 - p.idx]; }
 function clampX(p, x) { return p.face === 1 ? clamp(x, -0.9, NET - 0.35) : clamp(x, NET + 0.35, COURT + 0.9); }
 const BASE_DEPTH = 3.3; // где ИИ ждёт удара соперника, м от сетки
+const NET_FOLLOW = 2.0; // где ИИ ждёт после своей сетки, м от сетки
 function basePos(p) { return NET - p.face * BASE_DEPTH; }
 
 function localIdx() { return game.mode === 'online' ? Net.myIdx : 0; }
@@ -955,7 +971,7 @@ function doHit(p, key) {
       sol = solveFlat(cx, cy, dir, T(Math.max(0.4, tgt + weak * 1.3 + 0.8 * e() * prec)), 30 * boost, fail(0.14) ? -rnd(0.03, 0.2) : mg + weak * 0.35 - mErr * prec, -40, 65);
     } else if (distNet < 2.3) {
       v = 'net'; if (place < 0) usedPlace = 0;
-      sol = solveFlat(cx, cy, dir, T(Math.max(0.2, (place > 0 ? 0.35 : 0.6) + weak * 0.9 + 0.4 * e() * prec)), 12, fail(0.18) ? -rnd(0.02, 0.12) : (place > 0 ? 0.015 : 0.03) + weak * 0.3 - mErr * 0.5 * prec, -10, 85);
+      sol = solveFlat(cx, cy, dir, T(Math.max(0.2, (place > 0 ? 0.35 : 0.6) + weak * 0.9 + 0.4 * e() * prec)), 12, fail(0.18) ? -rnd(0.02, 0.12) : (place > 0 ? 0.015 : 0.03) + weak * 0.3 + NET_LOW_UP * clamp((1.1 - cy) / 0.8, 0, 1) - mErr * 0.5 * prec, -10, 85, true);
     } else {
       v = 'block'; usedPlace = 0;
       sol = solveFlat(cx, cy, dir, T(Math.max(0.4, 1.4 + weak * 1.2 + 0.7 * e() * prec)), 18, fail(0.11) ? -rnd(0.03, 0.15) : 0.08 + weak * 0.3 - mErr * prec, -20, 75);
@@ -969,6 +985,12 @@ function doHit(p, key) {
       const tgt = place > 0 ? 2.4 : place < 0 ? 4.9 : 3.8;
       const feetAt = clamp(Math.abs(opponent(p).x - NET), 1.3, 6.3); // заряженный — в ноги соперника
       sol = solveAngle(cx, cy, dir, T(charged ? feetAt + 0.25 * rs() : Math.max(1.2, tgt + weak * 1.5 + 1.5 * e())), sp, fail(0.16) ? -rnd(0.05, 0.25) : 0.04 - Math.pow(1 - q, 2) * 0.3 * Math.random() * skill);
+    } else if (killZone(cx, cy)) {
+      // добивание: волан у сетки выше троса — коротко и круто вниз; плохой контакт может отправить его в трос
+      v = 'kill';
+      const sp = 34 * (0.72 + 0.28 * q) * (d ? d.power : 1) * st.smash * boost;
+      const tgt = place > 0 ? 1.4 : place < 0 ? 3.2 : 2.2;
+      sol = solveAngle(cx, cy, dir, T(Math.max(1, tgt + weak * 1.2 + e())), sp, fail(0.12) ? -rnd(0.03, 0.15) : 0.03 - Math.pow(1 - q, 2) * 0.3 * Math.random() * skill);
     } else {
       v = 'drive'; if (place < 0) usedPlace = 0;
       sol = solveFlat(cx, cy, dir, T(Math.max(2, (place > 0 ? 3.0 : 4.6) + 1.4 * e())), 34 * (0.8 + 0.2 * q) * boost, fail(0.12) ? -rnd(0.03, 0.15) : 0.07 - mErr * 0.6, -15, 50);
@@ -1010,15 +1032,15 @@ function launch(p, sol, v, info = {}) {
   game.stats.hits++; game.stats.shots[v] = (game.stats.shots[v] || 0) + 1;
   sh.predLand = simulate(sh.x, sh.y, sh.vx, sh.vy).landX;
   const kmh = Math.round(sol.speed * 3.6);
-  const fast = v === 'smash' || v === 'drive' || v === 'flick';
+  const fast = isAttack(v) || v === 'drive' || v === 'flick';
   const offline = game.mode !== 'online';
   const lbl = info.charged ? 'Заряженный смэш' : PLACE_LABEL[v + (info.place || 0)] || SHOT_LABEL[v];
   if (info.perfect) fx('popup', 'Чисто', +sh.x.toFixed(2), +(sh.y + 0.45).toFixed(2), COLORS.lamp, false, false);
-  fx('popup', lbl + (fast ? ' · ' + kmh + ' км/ч' : ''), +sh.x.toFixed(2), +(sh.y + 0.45).toFixed(2), info.perfect ? COLORS.lamp : p.color, v === 'smash', false);
+  fx('popup', lbl + (fast ? ' · ' + kmh + ' км/ч' : ''), +sh.x.toFixed(2), +(sh.y + 0.45).toFixed(2), info.perfect ? COLORS.lamp : p.color, isAttack(v), false);
   applyPressure(p, v, info);
   if (game.mode !== 'train') for (const r of P) if (isReader(r)) { if (r === p) readAim(r, v); else readObserve(r, v, info.place); }
-  // перехват: чистый отбой чужого смэша драйвом, блоком или атакой (свеча не считается) — давление переходит на смэшиста
-  if (prevV === 'smash' && prevHitter && prevHitter !== p && info.perfect && v !== 'lift' && game.mode !== 'train') {
+  // перехват: чистый отбой чужого смэша или добивания драйвом, блоком или атакой (свеча не считается) — давление переходит на атаковавшего
+  if (isAttack(prevV) && prevHitter && prevHitter !== p && info.perfect && v !== 'lift' && game.mode !== 'train') {
     p.press = 0; prevHitter.press = clamp(prevHitter.press + COUNTER_PRESS, 0, 1); prevHitter.charge = 0;
     game.stats.counters = (game.stats.counters || 0) + 1;
     fx('popup', 'Перехват!', +sh.x.toFixed(2), +(sh.y + 0.95).toFixed(2), COLORS.lamp, true, false);
@@ -1028,6 +1050,10 @@ function launch(p, sol, v, info = {}) {
     if (offline) game.hitstop = (info.charged ? 0.11 : 0.075) + (info.perfect ? 0.03 : 0);
     if (info.charged) game.stats.charged = (game.stats.charged || 0) + 1;
     fx('shake', info.charged ? 10 : 7); fx('wall', kmh, p.color, info.charged ? -1 : p.idx, info.charged ? 1 : 0); fx('hit', 1);
+  } else if (v === 'kill') {
+    // добивание — не смэш: скорость на табло и в рекорд не идёт
+    if (offline) game.hitstop = 0.06 + (info.perfect ? 0.03 : 0);
+    fx('shake', 5); fx('hit', 0.9);
   } else {
     if (offline) game.hitstop = 0.022 + (info.perfect ? 0.03 : 0);
     fx('hit', v === 'net' || v === 'short' || v === 'block' ? 0.15 : v === 'drop' ? 0.35 : 0.6);
@@ -1040,6 +1066,7 @@ function applyPressure(p, v, info) {
   const o = opponent(p), oDepth = Math.abs(o.x - NET);
   let add = 0, relief = 0.05;
   if (v === 'smash') { add = 0.3 + (info.air ? 0.1 : 0); relief = 0.22; }
+  else if (v === 'kill') { add = 0.3; relief = 0.2; }
   else if (v === 'drive') { add = 0.1; relief = 0.1; }
   else if (v === 'drop') { add = 0.1 + (oDepth > 4 ? 0.08 : 0); relief = 0.12; }
   else if (v === 'net') { add = 0.1 + (info.place > 0 ? 0.06 : 0); relief = 0.1; }
@@ -1085,8 +1112,8 @@ function award(w, label, shout) {
   const a = game.score[w.idx], b = game.score[1 - w.idx];
   if ((a >= game.target && a - b >= 2) || a >= TARGETS[game.target]) game.over = w.idx;
   fx('point', w.idx);
-  if (w.ai && sh.lastHitter === w && sh.variant === 'smash' && label !== 'Аут') aiReact(0, 350, shout ? 1 : 0.45);
-  else if (!w.ai && P[1 - w.idx].ai && sh.lastHitter === w && sh.variant === 'smash' && label !== 'Аут') aiReact(1, 450, shout ? 0.8 : 0.3);
+  if (w.ai && sh.lastHitter === w && isAttack(sh.variant) && label !== 'Аут') aiReact(0, 350, shout ? 1 : 0.45);
+  else if (!w.ai && P[1 - w.idx].ai && sh.lastHitter === w && isAttack(sh.variant) && label !== 'Аут') aiReact(1, 450, shout ? 0.8 : 0.3);
   else if (w.ai && sillyMiss(w, label) && Math.random() < 0.6) { game.laughR = st.rallies; aiReact(aiLaugh(), 500); }
   updateBoard(); updateHint();
 }
@@ -1096,7 +1123,7 @@ function sillyMiss(bot, label) {
   const me = opponent(bot);
   if (game.mode !== '1p' || me.ai || game.stats.rallies - (game.laughR ?? -9) < 3) return false;
   if (sh.lastHitter === me) return label !== 'Аут' || Math.max(-sh.x, sh.x - COURT) > 0.5;
-  return label === 'В корт' && sh.variant !== 'smash' && Math.abs(sh.x - me.x) < 1;
+  return label === 'В корт' && !isAttack(sh.variant) && Math.abs(sh.x - me.x) < 1;
 }
 
 /* ========= ИИ ========= */
@@ -1124,7 +1151,9 @@ function planFrom(p, d, pred, fromX) {
   const spd = cfg.runSpeed * d.speed * styleOf(p).speed * fatigueSpeed(p) * (p.recover > 0 ? 0.75 : 1), R = reachOf(p) * 0.92;
   let best = null, lastMine = null;
   for (const pt of pred.pts) {
-    if ((pt.x - NET) * p.face > -0.05) continue;
+    // волан у сетки выше троса — выйти и добить: такую точку берём даже у самого троса
+    const kz = !p.ai.bot && killZone(pt.x, pt.y);
+    if ((pt.x - NET) * p.face > (kz ? 0 : -0.05)) continue;
     if (pt.y >= 0.3) lastMine = pt;
     if (pt.y < 0.3) continue;
     const off = pt.y > 1.9 ? 0.3 : 0.45;
@@ -1137,12 +1166,13 @@ function planFrom(p, d, pred, fromX) {
     const jumpOk = !standOk && pt.t > 0.4 && Math.hypot(dx, pt.y - SHOULDER - 0.62) <= R;
     if (!standOk && !jumpOk) continue;
     let score = -Math.abs(pt.y - 2.35) + Math.min(slack, 0.35) * 1.2 - pt.t * 0.15;
+    if (kz) score += 0.5;
     if (jumpOk) score += (p.sta > 0.35 ? 0.15 : -0.3) * d.aggr;
-    if (!best || score > best.score) best = { x: px, t: game.time + pt.t, y: pt.y, jump: jumpOk, score };
+    if (!best || score > best.score) best = { x: px, t: game.time + pt.t, y: pt.y, sx: pt.x, jump: jumpOk, score };
   }
   if (!best) {
     const tgt = lastMine || { x: pred.landX, y: 0.5, t: pred.t };
-    best = { x: clampX(p, tgt.x - p.face * 0.4), t: game.time + tgt.t, y: tgt.y, jump: false };
+    best = { x: clampX(p, tgt.x - p.face * 0.4), t: game.time + tgt.t, y: tgt.y, sx: tgt.x, jump: false };
   }
   return best;
 }
@@ -1152,22 +1182,24 @@ function pickWeighted(w) {
   for (const k in w) { r -= w[k]; if (r <= 0) return k; }
   return Object.keys(w)[0];
 }
-function aiChooseShot(p, cy, d) {
+function aiChooseShot(p, cy, d, sx) {
   // для тестов: ai.bot = { key, place } — однообразный соперник, 'any' — случайный удар и прицел
   const bot = p.ai.bot;
   if (bot) { const any = bot === 'any'; p.ai.place = any ? Math.floor(Math.random() * 3) - 1 : bot.place || 0; return any ? pickWeighted({ clear: 1, drop: 1, smash: 1 }) : bot.key; }
-  const key = aiPickKey(p, cy, d);
+  const key = aiPickKey(p, cy, d, sx);
   const o = opponent(p), oDepth = Math.abs(o.x - NET);
   // рисковать с направлением ИИ решается чаще, когда свеж и соперник под давлением
   const risky = Math.random() < d.risk * (p.sta < 0.35 ? 0.4 : 1) * (1 + o.press);
   p.ai.place = !risky ? 0 : key === 'clear' ? (oDepth < 3 ? -1 : 1) : key === 'drop' ? 1 : key === 'smash' ? (oDepth > 3.8 ? 1 : -1) : 0;
   return key;
 }
-function aiPickKey(p, cy, d) {
+function aiPickKey(p, cy, d, sx) {
   const oppDepth = Math.abs(opponent(p).x - NET), myDepth = Math.abs(p.x - NET);
   if (p.sta < 0.3 && cy >= 1.9) return pickWeighted({ clear: 0.65, drop: 0.3, smash: 0.05 });
   if (cy >= 1.9 && myDepth > 5.4) return pickWeighted({ clear: 0.55, drop: 0.3 * d.aggr, smash: 0.15 * d.aggr });
   if (cy >= 1.9) return pickWeighted({ smash: (myDepth < 4.6 ? 0.5 : 0.18) * d.aggr, clear: oppDepth < 3 ? 0.55 : 0.25, drop: oppDepth > 3.6 ? 0.5 : 0.22 });
+  // волан у сетки выше троса — добивает: сложный почти всегда, лёгкий через раз
+  if (sx !== undefined && killZone(sx, cy) && Math.random() < 0.35 + 0.45 * d.aggr) return 'smash';
   if (myDepth < 2.3) return pickWeighted({ drop: 0.55, clear: 0.45 });
   return pickWeighted({ clear: 0.6, drop: 0.25, smash: 0.15 });
 }
@@ -1188,7 +1220,8 @@ function aiUpdate(p, h) {
   if (game.state !== 'rally') { steer(p, basePos(p), 0.5); return; }
   const incoming = sh.inPlay && sh.lastHitter && sh.lastHitter !== p;
   // умный ждёт не в центре, а ближе к тому, куда соперник, скорее всего, ответит (если уверен)
-  const home = d.read ? readHome(p) : basePos(p);
+  // после своей сетки ИИ остаётся ближе к ней (NET_FOLLOW): небрежный ответ сеткой можно добить
+  const home = !ai.bot && sh.lastHitter === p && sh.variant === 'net' ? NET - p.face * NET_FOLLOW : d.read ? readHome(p) : basePos(p);
   if (!incoming) { ai.plan = null; steer(p, home); return; }
   if (ai.seen !== game.hitId) { ai.seen = game.hitId; ai.react = d.react * rnd(0.75, 1.3) + (Math.hypot(sh.vx, sh.vy) > 35 ? 0.07 : 0) + p.press * 0.08; ai.plan = null; }
   if (ai.react > 0) { ai.react -= h; steer(p, d.read ? readLean(p) : home, 0.35); return; }
@@ -1198,7 +1231,7 @@ function aiUpdate(p, h) {
   steer(p, plan.x);
   const tTo = plan.t - game.time;
   if (plan.jump && p.onGround && tTo <= 0.38 && tTo > 0.1) p.jumpReq = 0.05;
-  if (!plan.pressed && tTo <= plan.lead) { plan.pressed = true; p.shotReq = aiChooseShot(p, plan.y, d); }
+  if (!plan.pressed && tTo <= plan.lead) { plan.pressed = true; p.shotReq = aiChooseShot(p, plan.y, d, plan.sx); }
 }
 
 /* Чтение: умный ИИ учится на ударах соперника и встаёт заранее. Физика у него как у сложного — выигрыш только от предвидения.
@@ -1222,9 +1255,9 @@ const READ = {
 const READ_DEPTH = {
   'clear-1': 5.6, clear0: 5.3, clear1: 5.0, 'lift-1': 5.4, lift0: 5.1, high0: 5.5, flick0: 5.2,
   drop1: 1.4, drop0: 1.8, 'drop-1': 2.4, net1: 1.0, net0: 1.1, block0: 1.8, short0: 1.9,
-  smash1: 2.6, smash0: 3.5, 'smash-1': 4.3, drive1: 2.9, drive0: 4.0,
+  smash1: 2.6, smash0: 3.5, 'smash-1': 4.3, kill1: 2.3, kill0: 2.5, 'kill-1': 3.0, drive1: 2.9, drive0: 4.0,
 };
-const SHOT_GROUP = { clear: 'h', lift: 'h', high: 'h', smash: 'a', drive: 'a', flick: 'a', drop: 's', net: 's', block: 's', short: 's' };
+const SHOT_GROUP = { clear: 'h', lift: 'h', high: 'h', smash: 'a', kill: 'a', drive: 'a', flick: 'a', drop: 's', net: 's', block: 's', short: 's' };
 let readMem = null; // память между партиями; в игре против ИИ она же в localStorage (bdm-read), в демо и тестах — только здесь
 const isReader = p => !!(p && p.ai && DIFFS[p.ai.diff] && DIFFS[p.ai.diff].read);
 const readWho = () => game.mode === '1p' ? profile.pid : game.mode;
@@ -1408,7 +1441,7 @@ function updatePlayer(p, h) {
         const lunge = sh.y < 0.9, jumped = !p.onGround;
         doHit(p, s.key); s.hit = true; s.t = Math.max(s.t, 0.1);
         p.recover = (lunge ? 0.32 : jumped ? 0.28 : 0.14) * styleOf(p).recover * (1 + Math.max(0, 0.5 - p.sta));
-        p.sta = clamp(p.sta - (0.03 + (lunge ? 0.04 : 0) + (sh.variant === 'smash' ? (jumped ? 0.08 : 0.05) : 0)) * styleOf(p).drain, 0, 1);
+        p.sta = clamp(p.sta - (0.03 + (lunge ? 0.04 : 0) + (sh.variant === 'smash' ? (jumped ? 0.08 : 0.05) : sh.variant === 'kill' ? 0.03 : 0)) * styleOf(p).drain, 0, 1);
         if (p.remote) fx('recover', p.idx, p.recover);
       }
     }
@@ -2272,17 +2305,19 @@ function peerTransport() {
       peer.on('open', () => cb.onOpen(code));
       this.isHost = true;
       peer.on('connection', conn => {
-        // Место держит только живой соперник. Уступает новому гостю, если прежнее соединение не открылось,
-        // замолчало (больше 3 с без данных: вкладку закрыли, телефон уснул) или это тот же игрок
-        // с другой вкладки (ссылка открылась в Telegram, потом её открыли в Safari).
-        const cur = this.conn, pid = conn.metadata && PID.test(conn.metadata.pid) ? conn.metadata.pid : null;
-        const free = !cur || !cur.open || performance.now() - Net.lastRecv > 3000 || (pid && pid === this.guestPid);
+        // Место держит только живой соперник. Уступает новому гостю, если прежнее соединение замолчало
+        // (больше 3 с без данных: вкладку закрыли, телефон уснул), так и не открылось за 5 с, или это тот же игрок
+        // с другой вкладки (ссылка открылась в Telegram, потом её открыли в Safari). Двое жмут комнату в лобби
+        // одновременно — входит первый, второй сразу слышит «уже играют двое». Раньше второй вытеснял первого,
+        // пока тот соединялся, и первый 15 с висел на «Подключаемся…»: закрытое до открытия соединение молчит.
+        const cur = this.conn, pid = conn.metadata && PID.test(conn.metadata.pid) ? conn.metadata.pid : null, now = performance.now();
+        const free = !cur || (pid && pid === this.guestPid) || (cur.open ? now - Net.lastRecv > 3000 : now - this.connAt > 5000);
         if (!free) { conn.on('open', () => { try { conn.send({ t: 'busy' }); } catch (_) {} setTimeout(() => conn.close(), 400); }); return; }
         if (cur) { // новичку — свежие 10 с до «связь потеряна» и счётчики с нуля: у новой вкладки своя нумерация ударов и реакций
           this.conn = null; try { cur.close(); } catch (_) {}
           Object.assign(Net, { lastRecv: performance.now(), lastInN: 0, lastShotSeq: 0, lastAg: 0, lastRq: 0, lastTs: 0, eventAck: 0 });
         }
-        this.guestPid = pid;
+        this.guestPid = pid; this.connAt = now;
         this.wire(conn, cb);
       });
       peer.on('error', err => { if (!this.closed) cb.onError(err && err.type || 'error'); });
@@ -2374,12 +2409,13 @@ function netHost() {
 function netJoin() {
   const code = $('netCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (code.length !== 4) { setNetStatus('<span class="err">Код из четырёх символов, например K7QX.</span>'); $('netCode').focus(); return; }
+  if (Net.role === 'guest' && Net.code === code) return; // уже входим сюда: повторный клик не начинает всё заново
   netClose();
   const tr = makeTransport(); if (!tr) return;
   Net.role = 'guest'; Net.myIdx = 1; Net.transport = tr; Net.code = code; Net.savedCfg = { ...cfg };
   setNetStatus('Подключаемся к комнате ' + code + '…');
   tr.join(code, netCallbacks());
-  Net.joinTimer = setTimeout(() => { if (!Net.connected && Net.role === 'guest') netFail('Не получилось соединиться за 15 секунд. Проверь код и попробуй ещё раз.'); }, 15000);
+  Net.joinTimer = setTimeout(() => { if (!Net.connected && Net.role === 'guest') netFail('Комната не ответила за 15 секунд: друг её закрыл или уже играет с другим. Проверь код и попробуй ещё раз.'); }, 15000);
 }
 function netClose() {
   clearInterval(Net.lobbyBeat);
@@ -2899,11 +2935,17 @@ async function lobbyRefresh() {
     renderLobby((rows || []).filter(r => r.host_pid !== profile.pid && /^[A-Z2-9]{4}$/.test(r.code)));
   } catch (_) { box.hidden = true; }
 }
+let lobbyKey = '';
 function renderLobby(rows) {
   const box = $('lobby'), list = $('lobbyList');
-  list.textContent = '';
+  // Порядок — по имени, а не по свежести пульса: пульс у каждой комнаты свой, и строки менялись бы местами
+  // под курсором. Тот же список не перерисовываем: кнопка, подменённая между нажатием и отпусканием, клик теряет.
+  rows = rows.slice().sort((a, b) => String(a.host_name).localeCompare(String(b.host_name)) || (a.code < b.code ? -1 : 1)).slice(0, 4);
+  const key = rows.map(r => r.code + r.host_pid + r.host_name).join('|');
   box.hidden = !rows.length;
-  for (const r of rows.slice(0, 4)) {
+  if (key === lobbyKey && list.childElementCount === rows.length) return;
+  lobbyKey = key; list.textContent = '';
+  for (const r of rows) {
     const name = cleanName(r.host_name) || 'Игрок';
     const b = document.createElement('button'); b.className = 'lobby-item'; b.type = 'button';
     const av = document.createElement('span'); av.className = 'av'; av.style.background = pidColor(r.host_pid); av.textContent = name.charAt(0).toUpperCase();
@@ -2977,7 +3019,7 @@ const RULE_STEPS = [
   { t: 'Смэш', keys: ['W', 'S'], demo: 'smash',
     d: '<p><kbd>S</kbd> — быстрый удар вниз. С прыжком (<kbd>W</kbd>, затем <kbd>S</kbd>) смэш круче и быстрее.</p><p>Сильнее всего смэш из середины корта: с задней линии волан успевает затормозить.</p>' },
   { t: 'Удары снизу', keys: ['Q', 'E', 'S'], demo: 'low',
-    d: '<p>Если волан <b>ниже плеча</b>, те же кнопки дают другие удары: <kbd>Q</kbd> — свеча высоко назад, <kbd>E</kbd> — сетка или блок, <kbd>S</kbd> — драйв, плоско и быстро.</p><p>До низкого волана игрок тянется в выпаде сам.</p>' },
+    d: '<p>Если волан <b>ниже плеча</b>, те же кнопки дают другие удары: <kbd>Q</kbd> — свеча высоко назад, <kbd>E</kbd> — сетка или блок, <kbd>S</kbd> — драйв, плоско и быстро.</p><p>До низкого волана игрок тянется в выпаде сам.</p><p><b>Добивание.</b> Если волан у самой сетки идёт выше троса, <kbd>S</kbd> бьёт его коротко и круто вниз. Сетка с плохого контакта или из-под самого пола выходит высокой — соперник у сетки её добьёт. Бери волан у сетки раньше, пока он высоко.</p>' },
   { t: 'Куда бить', keys: ['A', 'D', 'Q', 'S', 'W'], demo: 'place',
     d: '<p>В момент удара направление работает как прицел: волан летит туда, куда жмёшь. <kbd>D</kbd> — дальше, под самую заднюю линию: опасно для соперника, но можно уйти в аут. <kbd>A</kbd> — ближе к сетке, короче и острее.</p><p>Смэш с зажатой <kbd>A</kbd> летит в ноги.</p>' },
   { t: 'Чистый удар', keys: ['Q'], demo: 'perfect',
@@ -2988,6 +3030,7 @@ const RULE_STEPS = [
       'После каждого удара возвращайся в центр своей половины: оттуда ближе и к сетке, и назад.',
       'Клир, потом дроп: соперник бегает туда-обратно и быстрее устаёт.',
       'Короткий ответ соперника добивай прыжком и смэшем с зажатой <kbd>A</kbd> — в ноги.',
+      'Сыграл сетку — оставайся у сетки: небрежный ответ добивай смэшем <kbd>S</kbd>, пока волан выше троса.',
       'Под давлением не рискуй: глубокая свеча (<kbd>D</kbd> + <kbd>Q</kbd>) даёт время прийти в себя.',
       'Смотри на тень волана на полу: она показывает, куда он падает. Для тренировки включи в настройках ⚙ «Показывать, куда упадёт волан».',
       'ИИ бьёт смэш коротко, перед тобой, если ты стоишь сзади, и за спину, если ты у сетки. Держись в центре.',
