@@ -1,4 +1,5 @@
-"""Онлайн без сети: две вкладки через BroadcastChannel (?net=local), хост создаёт комнату, гость входит по коду и бьёт."""
+"""Онлайн без сети: две вкладки через BroadcastChannel (?net=local), хост создаёт комнату, гость входит по коду и бьёт.
+Потом хост открывает комнату и уходит играть с ИИ: комната закрывается, и вошедший друг его из партии не выдёргивает."""
 from _util import sync_playwright, BASE, launch, sign_up
 
 errs = []
@@ -18,6 +19,28 @@ with sync_playwright() as pw:
     assert A.evaluate("() => __bdm.Net.lastShotSeq") == 1, 'удар гостя дошёл до хоста'
     B.keyboard.press('Digit4'); A.wait_for_timeout(500)
     assert ['GG'] == A.evaluate("() => __bdm.game.bubbles.map(b => b.text)"), 'реакция гостя видна хосту'
+    # пинг гостя для окна удара хозяин меряет сам по эху; цифре, которую прислал гость, не верит
+    rtt = A.evaluate("() => [__bdm.Net.remoteRtt, __bdm.Net.lastHe]")
+    assert rtt[1] > 0 and 0 < rtt[0] < 0.2, f'хозяин измерил пинг гостя по эху: {rtt}'
+    B.evaluate("() => { const N = __bdm.Net; for (let i = 0; i < 5; i++) N.send({ t: 'in', n: ++N.outN, ep: -1, rtt: 1, he: 1 }); }")
+    A.wait_for_timeout(300)
+    rtt2 = A.evaluate("() => __bdm.Net.remoteRtt")
+    assert rtt2 < 0.2, f'подделанный пинг гостя не расширил ему окно удара: {rtt2}'
+
+    # хост открыл комнату и ушёл играть с ИИ — комната закрыта, друг по коду не входит
+    C = ctx.new_page(); D = ctx.new_page()
+    for pg, n in ((C, 'C'), (D, 'D')): pg.on('pageerror', lambda e, n=n: errs.append(n + ': ' + str(e)))
+    C.goto(BASE + '?net=local&p=5'); D.goto(BASE + '?net=local&p=6'); C.wait_for_timeout(800)
+    sign_up(C, 'Хост2'); sign_up(D, 'Гость2')
+    C.click('#netHost'); C.wait_for_timeout(400)
+    code2 = C.inner_text('.net-status .code')
+    assert C.evaluate("() => __bdm.Net.role") == 'host'
+    C.click('#playAi'); C.wait_for_timeout(300)
+    assert C.evaluate("() => __bdm.game.mode") == '1p'
+    assert not C.evaluate("() => __bdm.Net.role"), 'ушёл играть с ИИ — комната закрыта'
+    D.fill('#netCode', code2); D.click('#netJoin'); D.wait_for_timeout(1500)
+    assert not D.evaluate("() => __bdm.Net.connected"), 'в закрытую комнату не войти'
+    assert C.evaluate("() => __bdm.game.mode") == '1p', 'хоста не выдернуло из партии с ИИ'
     br.close()
 
 assert not errs, [e for e in errs if 'Failed to load resource' not in e] or None
