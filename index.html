@@ -2188,6 +2188,8 @@ function updateHint() {
 
 function startGame(mode) {
   unlockAudio();
+  // ушёл играть с ИИ или на тренировку — комнату закрываем и убираем из лобби: иначе вошедший друг выдернет из партии в онлайн
+  if (mode !== 'online' && Net.role) { netClose(); setNetStatus(NET_HINT); }
   $('menu').hidden = true; $('over').hidden = true; $('pause').hidden = true;
   document.body.classList.remove('menu-open');
   document.body.classList.add('playing');
