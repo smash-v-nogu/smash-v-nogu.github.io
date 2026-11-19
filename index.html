@@ -819,7 +819,7 @@ const SHOULDER = 1.45, HIP = 0.95, JUMP_V = 3.6;
 const VIEW_L = -1.7, VIEW_R = COURT + 1.7, VIEW_TOP = 8.0, VIEW_BOTTOM = -1.05;
 const DZX = 0.055, DZY = 0.11; // косая проекция глубины: дальняя сторона корта выше и правее
 
-const DEFAULTS = { timeScale: 0.75, runSpeed: 5.2, reach: 1.1, vTerm: 6.7, showLanding: false, sound: true };
+const DEFAULTS = { timeScale: 0.8, runSpeed: 5.2, reach: 1.1, vTerm: 6.7, showLanding: false, sound: true };
 // Ползунки темпа и физики — только для настройки баланса (?tune в адресе). У игроков всегда значения по умолчанию:
 // с ними выверен ИИ, а в онлайне снимок хозяина навязывает их гостю.
 const TUNE = /[?&]tune\b/.test(location.search), TUNE_KEYS = ['timeScale', 'runSpeed', 'reach', 'vTerm'];
