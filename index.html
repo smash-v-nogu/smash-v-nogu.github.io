@@ -1705,6 +1705,18 @@ for (const btn of document.querySelectorAll('.tbtn')) {
   btn.addEventListener('pointercancel', up);
   btn.addEventListener('lostpointercapture', up);
 }
+// Айфон: пока открыта клавиатура (код комнаты, имя, ПИН), Safari сдвигает страницу к полю и после неё может не вернуть.
+// Кнопки рисуются на месте, а касания засчитываются со сдвигом: жмёшь реакцию — уходит соседняя, стрелки «не нажимаются»
+// (гостья на айфоне, 20.11). Как только поле ввода отпустило фокус или клавиатура закрылась, возвращаем страницу в ноль
+function typing() { const a = document.activeElement; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); }
+function resetScroll() {
+  if (typing()) return;
+  if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+  for (const el of [document.documentElement, document.body]) if (el.scrollTop || el.scrollLeft) { el.scrollTop = 0; el.scrollLeft = 0; }
+}
+document.addEventListener('focusout', () => setTimeout(resetScroll, 60));
+if (window.visualViewport) visualViewport.addEventListener('resize', () => setTimeout(resetScroll, 60));
+window.addEventListener('orientationchange', () => setTimeout(resetScroll, 400));
 // Щипок на iOS (Safari не слушает user-scalable=no): двумя большими пальцами по кнопкам страница не увеличивается
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
 document.addEventListener('touchmove', e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
@@ -2337,6 +2349,7 @@ function startGame(mode) {
   setupMode(mode, game.diff);
   $('reacts').hidden = mode !== 'online' && mode !== '1p';
   canvas.focus();
+  resetScroll(); setTimeout(resetScroll, 400); // клавиатура айфона уезжает с анимацией — дожимаем после неё
 }
 function restart() { startGame(game.mode); }
 function toMenu() {
