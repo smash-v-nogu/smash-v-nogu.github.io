@@ -2132,7 +2132,16 @@ function drawPopups(c, dt) {
   game.popups = game.popups.filter(pp => pp.t <= (pp.judge ? 1.6 : 0.85));
 }
 
+// У хозяина гость рисуется плавно (remoteView): на время отрисовки подменяем его позицию на сглаженную и сразу возвращаем
 function render(dt) {
+  const p = game.mode === 'online' && Net.role === 'host' && P[1] && P[1].remote ? P[1] : null;
+  if (!p) { renderScene(dt); return; }
+  const x = p.x, y = p.y;
+  [p.drawX, p.drawY] = remoteView(p);
+  p.x = p.drawX; p.y = p.drawY;
+  try { renderScene(dt); } finally { p.x = x; p.y = y; }
+}
+function renderScene(dt) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (bg) ctx.drawImage(bg, 0, 0, W, Hh);
   drawWall(ctx, dt);
@@ -2760,6 +2769,41 @@ function sendSnapshot() {
     aw: document.hidden ? (callIv ? 2 : 1) : 0, // хозяин в другой вкладке (2 — только что позвали свистком)
   });
 }
+// Гость на экране хозяина (20.11). Его позиция приходит сообщениями, а сеть их везёт неровно: то пусто, то два сразу.
+// Раньше хозяин рисовал гостя ровно в последней пришедшей точке — человечек на бегу замирал и прыгал (на неровной сети
+// стоял в 36–50% кадров). Теперь рисуем его чуть в прошлом, между двумя пришедшими точками; запас подстраивается под
+// дрожание сети (RV.jit), точки кончились — ведём дальше по скорости не дольше 0,1 с. Это только картинка: удары,
+// досягаемость и подача считаются по настоящей позиции p.x. Хозяина гость и так рисует сглаженно (other.tx в guestTick)
+const RV = { buf: [], off: Infinity, jit: 0, d: 40, ep: -1 };
+function remoteFeed(m, p) {
+  if (RV.ep !== game.posEpoch) { RV.buf.length = 0; RV.ep = game.posEpoch; }
+  const ts = +m.ts; if (!Number.isFinite(ts)) return; // старый гость времени не шлёт — рисуем как раньше
+  const off = performance.now() - ts; // разница часов + путь по сети; нижняя граница — самый быстрый путь
+  if (off > RV.off + 1500) { RV.off = off; RV.jit = 0; RV.buf.length = 0; } // другой гость или его вкладка перезапустилась: часы другие
+  RV.off = off < RV.off ? off : RV.off + (off - RV.off) * 0.01; // медленно вверх: маршрут сменился — граница догонит
+  RV.jit = Math.max(off - RV.off, RV.jit * 0.995); // насколько сообщения опаздывают против быстрого пути (тает ~25% в секунду)
+  const b = RV.buf;
+  if (b.length && ts <= b[b.length - 1].t) return;
+  b.push({ t: ts, x: p.x, y: p.y, vx: p.vx, vy: p.vy });
+  if (b.length > 90) b.shift();
+}
+function remoteView(p) {
+  const b = RV.buf;
+  if (RV.ep !== game.posEpoch || !b.length || !Number.isFinite(RV.off)) return [p.x, p.y]; // переставили на подачу — сразу на место
+  RV.d += (clamp(RV.jit + 17, 25, 120) - RV.d) * 0.05; // запас: дрожание + промежуток между сообщениями; меняется плавно
+  const t = performance.now() - RV.off - RV.d; // момент по часам гостя, который сейчас показываем
+  const last = b[b.length - 1];
+  if (t >= last.t) { // точки кончились — по скорости, не дольше 0,1 с
+    const s = Math.min(t - last.t, 100) / 1000 * cfg.timeScale;
+    const y = last.y > 0 || last.vy > 0 ? Math.max(0, last.y + last.vy * s - G * s * s / 2) : 0;
+    return [clampX(p, last.x + last.vx * s), y];
+  }
+  let i = b.length - 1;
+  while (i > 0 && b[i - 1].t > t) i--;
+  if (i === 0) return [b[0].x, b[0].y];
+  const a = b[i - 1], c = b[i], u = (t - a.t) / (c.t - a.t);
+  return [a.x + (c.x - a.x) * u, a.y + (c.y - a.y) * u];
+}
 function onGuestInput(m) {
   if (!(m.n > Net.lastInN)) return;
   Net.lastInN = m.n;
@@ -2768,6 +2812,7 @@ function onGuestInput(m) {
   if (m.ep === game.posEpoch && Number.isFinite(m.x) && Number.isFinite(m.y)) {
     p.x = clampX(p, m.x); p.y = clamp(m.y, 0, 1.2);
     p.vx = clamp(+m.vx || 0, -10, 10); p.vy = clamp(+m.vy || 0, -10, 10); p.onGround = !!m.g;
+    remoteFeed(m, p);
   }
   if (STYLES[m.sy]) { Net.peerStyle = m.sy; p.style = m.sy; }
   p.axis = clamp(+m.ax || 0, -1, 1);
