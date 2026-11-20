@@ -270,6 +270,9 @@ body.touch #touch { display: block; }
 body.touch #hint { display: none; }
 body.touch .only-touch { display: block; }
 body.touch .only-keys { display: none; }
+/* Айфон: двойной тап по кнопкам вызывал лупу, долгое нажатие — меню и выделение. В игре это не нужно (20.11) */
+body.touch, body.touch * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+body.touch input, body.touch textarea { -webkit-user-select: text; user-select: text; }
 .tpad { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); display: grid; gap: 10px; touch-action: none; }
 .tpad.left { left: calc(14px + env(safe-area-inset-left)); grid-template-columns: 88px 88px; gap: 8px; }
 .tpad.left .tbtn { width: 88px; height: 76px; font-size: 26px; }
@@ -2132,14 +2135,26 @@ function drawPopups(c, dt) {
   game.popups = game.popups.filter(pp => pp.t <= (pp.judge ? 1.6 : 0.85));
 }
 
-// У хозяина гость рисуется плавно (remoteView): на время отрисовки подменяем его позицию на сглаженную и сразу возвращаем
+// Что видит игрок (20.11). Физика идёт шагами по H = 1/240 с, а кадр приходит когда придётся: на кадр выпадает то 3 шага,
+// то 4 (при 120 Гц — то 1, то 2). Волан самый быстрый — на нём это и было видно: «не хватает кадров, лагает» (рывок за кадр
+// 12% в среднем, у худших 25%). Теперь рисуем положение между двумя последними шагами — по остатку времени acc / gacc.
+// У гостя волан ещё и поправляется снимками хозяина: поправку не показываем скачком, а растворяем за ~60 мс (sh.ox/oy,
+// onSnapshot). Гостя у хозяина рисует remoteView. Всё это только картинка: на время отрисовки подменяем позиции и возвращаем
+const VIEW = { ok: false, sx: 0, sy: 0, px: [0, 0], py: [0, 0] };
+function viewSave() { VIEW.ok = true; VIEW.sx = sh.x; VIEW.sy = sh.y; for (let i = 0; i < 2; i++) { VIEW.px[i] = P[i].x; VIEW.py[i] = P[i].y; } }
+const viewLerp = (a, b, t) => Math.abs(b - a) > 1 ? b : a + (b - a) * t; // перестановка на подачу — не размазываем
 function render(dt) {
-  const p = game.mode === 'online' && Net.role === 'host' && P[1] && P[1].remote ? P[1] : null;
-  if (!p) { renderScene(dt); return; }
-  const x = p.x, y = p.y;
-  [p.drawX, p.drawY] = remoteView(p);
-  p.x = p.drawX; p.y = p.drawY;
-  try { renderScene(dt); } finally { p.x = x; p.y = y; }
+  if (game.mode === 'clip' || !VIEW.ok) { renderScene(dt); return; }
+  const t = clamp((game.mode === 'online' && Net.role === 'guest' ? gacc : acc) / H, 0, 1);
+  const keep = [sh.x, sh.y, P[0].x, P[0].y, P[1].x, P[1].y];
+  const fade = Math.exp(-dt / 0.06); sh.ox = (sh.ox || 0) * fade; sh.oy = (sh.oy || 0) * fade;
+  sh.drawX = viewLerp(VIEW.sx, sh.x, t) + sh.ox; sh.drawY = Math.max(0, viewLerp(VIEW.sy, sh.y, t) + sh.oy);
+  for (const p of P) {
+    if (p.remote) [p.drawX, p.drawY] = remoteView(p);
+    else { p.drawX = viewLerp(VIEW.px[p.idx], p.x, t); p.drawY = viewLerp(VIEW.py[p.idx], p.y, t); }
+  }
+  sh.x = sh.drawX; sh.y = sh.drawY; for (const p of P) { p.x = p.drawX; p.y = p.drawY; }
+  try { renderScene(dt); } finally { [sh.x, sh.y, P[0].x, P[0].y, P[1].x, P[1].y] = keep; }
 }
 function renderScene(dt) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2876,22 +2891,37 @@ function onSnapshot(m) {
   const sw = d[5];
   if (sw) { if (!other.swing || other.swing.key !== sw[0] || Math.abs(other.swing.t - sw[1]) > 0.06) other.swing = { key: sw[0], t: sw[1], hit: true, over: !!sw[2], lowY: !!sw[3] }; }
   else other.swing = null;
-  const s = m.s, wasHeld = sh.held;
+  const s = m.s, wasHeld = sh.held, wasIn = sh.inPlay, ox = sh.x, oy = sh.y;
   sh.x = s[0]; sh.y = s[1]; sh.vx = s[2]; sh.vy = s[3]; sh.held = !!s[4]; sh.inPlay = !!s[5]; sh.ang = s[6]; sh.netHit = !!s[7];
   sh.lastHitter = s[8] >= 0 ? P[s[8]] : null; sh.predLand = s[9];
   if (sh.held && !wasHeld) sh.trail = [];
+  // Волан у гостя (20.11). Снимок — где волан был у хозяина, когда тот его отправил. Сеть везёт снимки неровно: опоздавший
+  // откидывал волан назад, и в полёте он дёргался (рывок 28% на ровной сети, 54% с дрожанием). Опоздание меряем от самого
+  // быстрого пути (SO.off — как RV.off у хозяина) и столько же досчитываем полёт сами; остаток поправки растворяется в render
+  if (Number.isFinite(m.hs)) {
+    const off = performance.now() - m.hs;
+    if (off > SO.off + 1500) SO.off = off; // хозяин перезагрузил вкладку: часы другие
+    SO.off = off < SO.off ? off : SO.off + (off - SO.off) * 0.01;
+    let n = sh.inPlay && !sh.held ? Math.min(36, Math.round((off - SO.off) / 1000 * cfg.timeScale / H)) : 0;
+    while (n-- > 0 && sh.inPlay) updateShuttle(H, false);
+  }
+  const jx = sh.x - ox, jy = sh.y - oy;
+  if (sh.held || wasHeld || !sh.inPlay || !wasIn || Math.hypot(jx, jy) > 2) { sh.ox = 0; sh.oy = 0; VIEW.sx = sh.x; VIEW.sy = sh.y; }
+  else { sh.ox = (sh.ox || 0) - jx; sh.oy = (sh.oy || 0) - jy; VIEW.sx += jx; VIEW.sy += jy; }
   Net.peerAway = m.aw === 1 || m.aw === 2 ? m.aw : 0;
   for (const e of m.ev || []) if (e[0] > Net.lastEv) { Net.lastEv = e[0]; applyFx(e[1], e.slice(2)); }
   if (m.rt) { const smp = (performance.now() - m.rt) / 1000; if (smp > 0 && smp < 3) Net.rtt = Net.rtt ? lerp(Net.rtt, smp, 0.15) : smp; }
   if (Number.isFinite(m.hs)) Net.lastHs = m.hs; // вернём хозяину в своём вводе: по нему он меряет пинг
 }
 let gacc = 0;
+const SO = { off: Infinity }; // снимки хозяина: нижняя граница «сейчас − время отправки» (onSnapshot)
 function guestTick(dt) {
   gacc += dt * cfg.timeScale;
   const me = P[Net.myIdx], other = P[1 - Net.myIdx];
   const k = 1 - Math.exp(-H * 22);
   let n = 0;
   while (gacc >= H && n < 60) {
+    viewSave();
     gacc -= H; n++;
     game.time += H;
     me.axis = humanAxis(me);
@@ -3342,7 +3372,16 @@ function sendReact(i) {
   if (Net.role === 'host') fx('react', Net.myIdx, i);
   else { Net.reactSeq++; Net.reactI = i; Net.lastSend = now; sendInput(); }
 }
-for (const b of document.querySelectorAll('#reacts button')) b.addEventListener('click', () => { sendReact(+b.dataset.r); canvas.focus(); });
+for (const b of document.querySelectorAll('#reacts button')) {
+  b.addEventListener('click', () => { sendReact(+b.dataset.r); canvas.focus(); }); // мышь и клавиатура
+  b.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') sendReact(+b.dataset.r); }); // палец: click гасим ниже, вместе с лупой
+}
+// Айфон: двойной тап по игровым кнопкам, корту и реакциям вызывал лупу и выделение (20.11). Отменённое касание не даёт
+// Safari начать свои жесты; кнопкам это не мешает — они слушают pointer-события, а те приходят и после отмены
+document.addEventListener('touchstart', e => {
+  if (!document.body.classList.contains('playing')) return;
+  if (e.target.closest && e.target.closest('#touch, #reacts, #game')) e.preventDefault();
+}, { passive: false });
 function drawBubbles(c, dt) {
   game.bubbles = (game.bubbles || []).filter(b => (b.t += dt) < 2.6);
   for (const b of game.bubbles) {
@@ -3849,7 +3888,7 @@ function frame(now) {
     else {
       acc += dt * cfg.timeScale;
       let n = 0;
-      while (acc >= H && n < 60) { step(H); acc -= H; n++; if (game.hitstop > 0) { acc = 0; break; } }
+      while (acc >= H && n < 60) { viewSave(); step(H); acc -= H; n++; if (game.hitstop > 0) { acc = 0; break; } }
     }
   }
   if (Net.role) Net.tick(now);

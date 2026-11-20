@@ -12,7 +12,7 @@ NETS = {  # имя: (база мс, дрожание мс, шанс затыка
     'дрожание + затыки': (20, 50, 0.03, 120, 5, 1.2),
 }
 SHIM = """(() => {
-  const cfg = window.__net = { base: 0, jit: 0, p: 0, stall: 0 };
+  const cfg = window.__net = { base: 30, jit: 0, p: 0, stall: 0 }; // задержка с самого соединения, как в жизни
   const post = BroadcastChannel.prototype.postMessage; let due = 0;
   BroadcastChannel.prototype.postMessage = function (m) {
     if (m && m.t === 'in') { const t = Date.now() / 1000, w = 2 * Math.PI / 3;
